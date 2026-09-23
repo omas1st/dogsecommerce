@@ -78,9 +78,59 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     }
   };
 
+  const isAdmin = !!user && (user.role === 'admin' || user.role === 'super_admin');
+
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isAdmin) {
+      loadData();
+    } else {
+      setIsLoading(false);
+    }
+  }, [isAdmin]);
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-[70vh] bg-[#FAF9F6] py-16 flex items-center justify-center">
+        <div className="max-w-md mx-auto px-4 text-center space-y-4">
+          <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto shadow-xs">
+            <ShieldCheck size={32} />
+          </div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 text-xs font-bold border border-red-200">
+            <span>Restricted: Administrator Access Required</span>
+          </div>
+          <h2 className="font-serif-brand text-2xl font-bold text-[#1E232A]">
+            Restricted Admin Operations Portal
+          </h2>
+          <p className="text-xs text-gray-600 leading-relaxed">
+            Admin operations are strictly restricted to authorized platform administrators and super admins. You do not currently have the permissions required to view or manage this portal.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
+            <button
+              onClick={() => onNavigate('marketplace')}
+              className="w-full sm:w-auto rounded-xl bg-[#0E5E58] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#0B4A45] shadow-xs"
+            >
+              Return to Marketplace
+            </button>
+            {!user ? (
+              <button
+                onClick={() => onNavigate('login')}
+                className="w-full sm:w-auto rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Sign In as Admin
+              </button>
+            ) : (
+              <button
+                onClick={() => onNavigate('account')}
+                className="w-full sm:w-auto rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Go to My Account
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleUpdateOrderStatus = async (orderId: string, status: string) => {
     try {
@@ -165,13 +215,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-md bg-amber-100 text-amber-900 px-2.5 py-0.5 text-xs font-bold">
-              <SlidersHorizontal size={13} /> Platform Administrator
+              <SlidersHorizontal size={13} /> Super Admin &amp; Operations Portal
             </div>
             <h1 className="font-serif-brand text-3xl font-bold text-[#1E232A] mt-1">
-              Hound &amp; Harbor Command Center
+              Hound &amp; Harbor Admin Operations Center
             </h1>
             <p className="text-xs text-gray-500">
-              Logged in as {user?.firstName} {user?.lastName} ({user?.email})
+              Authenticated as {user?.firstName} {user?.lastName} • Role: <span className="font-semibold capitalize text-amber-800">{user?.role?.replace('_', ' ')}</span> ({user?.email})
             </p>
           </div>
 

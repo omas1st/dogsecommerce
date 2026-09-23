@@ -80,10 +80,8 @@ export const placeOrder = async (req: AuthenticatedRequest, res: Response) => {
     const discountTotal = Math.min(subtotal, cart.appliedDiscountAmount || 0);
     const taxableSubtotal = Math.max(0, subtotal - discountTotal);
 
-    // Shipping
-    const shippingOptions = ShippingService.calculateRates(taxableSubtotal, shippingAddress);
-    const selectedShipping = shippingOptions.find((opt) => opt.id === shippingMethod) || shippingOptions[0];
-    const shippingCost = selectedShipping.price;
+    // Shipping: Free standard ground shipping on all orders; $2.00 for express priority air
+    const shippingCost = shippingMethod === 'express' ? 2.00 : 0.00;
 
     // Tax
     const { taxAmount, taxRate } = TaxService.calculateTax(taxableSubtotal, shippingAddress.state);

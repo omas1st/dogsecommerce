@@ -55,6 +55,34 @@ export const InfoPage: React.FC<InfoPageProps> = ({ section = 'about', onNavigat
   const [supportEmail, setSupportEmail] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
   const [supportSent, setSupportSent] = useState(false);
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportError, setSupportError] = useState('');
+  const [supportTicketRef, setSupportTicketRef] = useState('');
+
+  const handleSupportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supportName.trim() || !supportEmail.trim() || !supportMessage.trim()) return;
+    setSupportLoading(true);
+    setSupportError('');
+    try {
+      const data = await apiRequest<{ success: boolean; ticket: any }>('/support/tickets', {
+        method: 'POST',
+        body: JSON.stringify({
+          customerName: supportName.trim(),
+          customerEmail: supportEmail.trim(),
+          subject: `Support Inquiry from ${supportName.trim()}`,
+          category: 'support_inquiry',
+          message: supportMessage.trim(),
+        }),
+      });
+      setSupportTicketRef(data.ticket?.ticketNumber || `TCK-${Math.floor(100000 + Math.random() * 900000)}`);
+      setSupportSent(true);
+    } catch (err: any) {
+      setSupportError(err.message || 'Unable to deliver in-app message. Please try again.');
+    } finally {
+      setSupportLoading(false);
+    }
+  };
 
   // Buyback Calculator
   const [itemType, setItemType] = useState('aluminum_crate');
@@ -239,11 +267,11 @@ export const InfoPage: React.FC<InfoPageProps> = ({ section = 'about', onNavigat
             </p>
             <div className="space-y-3 pt-2 text-xs">
               <div className="p-3 rounded-lg bg-[#FAF9F6] border border-gray-100">
-                <strong className="text-gray-900 block">Free Standard Shipping on Orders $49+</strong>
+                <strong className="text-gray-900 block">Free Standard Ground Shipping on All Orders</strong>
                 Delivery in 2 to 4 business days via UPS Ground or FedEx Home across the 48 contiguous US states.
               </div>
               <div className="p-3 rounded-lg bg-[#FAF9F6] border border-gray-100">
-                <strong className="text-gray-900 block">Expedited Priority Air ($14.99)</strong>
+                <strong className="text-gray-900 block">Expedited Priority Air ($2.00)</strong>
                 Guaranteed delivery in 1 to 2 business days.
               </div>
               <div className="p-3 rounded-lg bg-[#FAF9F6] border border-gray-100">
@@ -361,73 +389,42 @@ export const InfoPage: React.FC<InfoPageProps> = ({ section = 'about', onNavigat
           <div className="rounded-2xl border border-[#E8E6DF] bg-white p-6 sm:p-10 shadow-xs space-y-6">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-[#0E5E58]">
-                Canine Concierge Desk
+                Canine Concierge &amp; Support
               </span>
               <h1 className="font-serif-brand text-3xl font-bold text-[#1E232A] mt-1">
-                How Can We Help You &amp; Your Dog?
+                In-App Customer Care &amp; Support
               </h1>
               <p className="mt-1 text-xs text-[#525B67]">
-                Our certified canine nutritionists and product experts are available 7 days a week from 8 AM to 8 PM CST.
+                Submit your inquiry below. All messages sent through this form are instantly and securely dispatched to our platform administrator’s inbox for direct review and prompt follow-up.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-              <div className="p-4 rounded-xl bg-[#FAF9F6] border border-gray-100 flex items-start gap-3">
-                <Mail size={18} className="text-[#0E5E58] shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-bold text-gray-900">Email Concierge</div>
-                  <div className="text-gray-500">concierge@houndandharbor.com</div>
-                  <div className="text-[10px] text-[#0E5E58] mt-1">Average reply: &lt; 15 mins</div>
-                </div>
+            {/* In-App Direct Message Form */}
+            <div className="rounded-xl bg-[#FAF9F6] border border-gray-200 p-6 sm:p-8 space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
+                <MessageSquare size={18} className="text-[#0E5E58]" />
+                <h3 className="font-bold text-gray-800 text-sm">Send an In-App Message to Admin</h3>
               </div>
 
-              <div className="p-4 rounded-xl bg-[#FAF9F6] border border-gray-100 flex items-start gap-3">
-                <Phone size={18} className="text-[#0E5E58] shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-bold text-gray-900">Telephone Line</div>
-                  <div className="text-gray-500">1 (800) 555-HOUND</div>
-                  <div className="text-[10px] text-[#0E5E58] mt-1">Toll-free across US &amp; Canada</div>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#FAF9F6] border border-gray-100 flex items-start gap-3">
-                <MessageSquare size={18} className="text-[#0E5E58] shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-bold text-gray-900">Nutritional Help</div>
-                  <div className="text-gray-500">Free diet review for your dog</div>
-                  <div className="text-[10px] text-[#0E5E58] mt-1">With licensed vet techs</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Direct message ticket form */}
-            <div className="rounded-xl bg-[#FAF9F6] border border-gray-200 p-6 space-y-4">
-              <h3 className="font-bold text-gray-800 text-sm">Send a Direct Message</h3>
               {!supportSent ? (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setSupportSent(true);
-                  }}
-                  className="space-y-4"
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <form onSubmit={handleSupportSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                        Your Name
+                        Your Full Name *
                       </label>
                       <input
                         type="text"
                         required
                         value={supportName}
                         onChange={(e) => setSupportName(e.target.value)}
-                        placeholder="e.g. Kimberly"
-                        className="w-full rounded-xl border border-gray-300 p-2.5 text-xs bg-white"
+                        placeholder="e.g. Kimberly Jenkins"
+                        className="w-full rounded-xl border border-gray-300 p-2.5 text-xs bg-white focus:border-[#0E5E58] focus:outline-none"
                       />
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                        Email Address
+                        Your Email Address *
                       </label>
                       <input
                         type="email"
@@ -435,42 +432,64 @@ export const InfoPage: React.FC<InfoPageProps> = ({ section = 'about', onNavigat
                         value={supportEmail}
                         onChange={(e) => setSupportEmail(e.target.value)}
                         placeholder="name@example.com"
-                        className="w-full rounded-xl border border-gray-300 p-2.5 text-xs bg-white"
+                        className="w-full rounded-xl border border-gray-300 p-2.5 text-xs bg-white focus:border-[#0E5E58] focus:outline-none"
                       />
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                      Question or Order Inquiry
+                      In-App Message to Administration *
                     </label>
                     <textarea
-                      rows={3}
+                      rows={4}
                       required
                       value={supportMessage}
                       onChange={(e) => setSupportMessage(e.target.value)}
-                      placeholder="Tell us how we can assist your canine..."
-                      className="w-full rounded-xl border border-gray-300 p-2.5 text-xs bg-white"
+                      placeholder="Type your question, order assistance request, or feedback here. Your message will be routed directly to the admin..."
+                      className="w-full rounded-xl border border-gray-300 p-2.5 text-xs bg-white focus:border-[#0E5E58] focus:outline-none"
                     />
                   </div>
 
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2 rounded-xl bg-[#0E5E58] px-6 py-2.5 text-xs font-bold text-white hover:bg-[#0B4A45]"
-                  >
-                    <Send size={13} />
-                    <span>Send Message to Concierge</span>
-                  </button>
+                  {supportError && (
+                    <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
+                      {supportError}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between gap-4 pt-1">
+                    <p className="text-[11px] text-gray-500">
+                      🔒 Delivered directly to administrator email.
+                    </p>
+                    <button
+                      type="submit"
+                      disabled={supportLoading}
+                      className="flex items-center gap-2 rounded-xl bg-[#0E5E58] px-6 py-2.5 text-xs font-bold text-white hover:bg-[#0B4A45] shadow-xs disabled:opacity-50 cursor-pointer active:scale-95 transition-all"
+                    >
+                      <Send size={13} />
+                      <span>{supportLoading ? 'Delivering to Admin...' : 'Send In-App Message'}</span>
+                    </button>
+                  </div>
                 </form>
               ) : (
-                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1">
-                  <div className="font-bold flex items-center gap-1.5">
-                    <CheckCircle2 size={16} className="text-emerald-700" />
-                    <span>Message Dispatched!</span>
+                <div className="p-6 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-3">
+                  <div className="font-bold flex items-center gap-2 text-sm text-emerald-800">
+                    <CheckCircle2 size={20} className="text-emerald-700" />
+                    <span>In-App Message Delivered to Admin!</span>
                   </div>
-                  <p>
-                    Thank you, {supportName}! Our concierge team has logged your inquiry and will reach back out to {supportEmail} shortly.
+                  <p className="leading-relaxed">
+                    Thank you, <strong>{supportName}</strong>! Your message has been recorded (Reference: <span className="font-mono font-bold text-emerald-800">{supportTicketRef}</span>) and delivered to the administrator’s email. Our administration team will review your message and reach back out to <strong>{supportEmail}</strong> promptly.
                   </p>
+                  <button
+                    onClick={() => {
+                      setSupportSent(false);
+                      setSupportMessage('');
+                      setSupportError('');
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 cursor-pointer transition-colors"
+                  >
+                    Send Another Message
+                  </button>
                 </div>
               )}
             </div>

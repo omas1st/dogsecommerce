@@ -38,6 +38,8 @@ export const createSupportTicket = async (req: AuthenticatedRequest, res: Respon
       customerName: finalName,
       subject,
       category,
+      message,
+      initialMessage: message,
       priority: 'medium',
       status: 'open',
       messages: [
@@ -134,7 +136,7 @@ export const getLoyaltyAccount = async (req: AuthenticatedRequest, res: Response
     const availableRewards = [
       { id: 'rew-1', title: '$5 Off Next Order', pointsRequired: 500, discountValue: 5, discountType: 'fixed' },
       { id: 'rew-2', title: '$10 Off Next Order', pointsRequired: 1000, discountValue: 10, discountType: 'fixed' },
-      { id: 'rew-3', title: 'Free Express Shipping', pointsRequired: 750, discountValue: 14.99, discountType: 'shipping' },
+      { id: 'rew-3', title: 'Free Express Shipping', pointsRequired: 750, discountValue: 2.00, discountType: 'shipping' },
       { id: 'rew-4', title: '$25 Premium Gear Credit', pointsRequired: 2500, discountValue: 25, discountType: 'fixed' },
     ];
 

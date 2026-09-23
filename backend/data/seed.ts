@@ -397,7 +397,7 @@ export const seedDatabase = async () => {
       marketplaceCommission: 0.12,
       freeShippingThreshold: 49.0,
       standardShippingFee: 5.99,
-      expressShippingFee: 14.99,
+      expressShippingFee: 2.00,
       taxRateDefault: 0.07,
       loyaltyPointsPerDollar: 5,
       enableGuestCheckout: true,

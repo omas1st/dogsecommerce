@@ -280,13 +280,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <span>-${summary.giftCardDeduction.toFixed(2)}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span>Estimated Shipping</span>
-                  <span>{summary.shippingCost === 0 ? <strong className="text-[#0E5E58]">FREE</strong> : `$${summary.shippingCost.toFixed(2)}`}</span>
-                </div>
                 <div className="pt-2 border-t border-gray-100 flex justify-between text-sm font-bold text-[#1E232A]">
                   <span>Estimated Total</span>
-                  <span className="text-base text-[#0E5E58]">${summary.total.toFixed(2)}</span>
+                  <span className="text-base text-[#0E5E58]">
+                    ${Math.max(0, summary.subtotal - summary.discount - summary.giftCardDeduction).toFixed(2)}
+                  </span>
                 </div>
               </div>
 

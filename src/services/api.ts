@@ -28,7 +28,26 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     headers,
   });
 
-  const data = await response.json();
+  const contentType = response.headers.get('content-type') || '';
+  let data: any;
+
+  if (contentType.includes('application/json')) {
+    try {
+      data = await response.json();
+    } catch {
+      data = { success: false, error: `Invalid JSON response from server (${response.status})` };
+    }
+  } else {
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`Server returned error ${response.status}`);
+    }
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { success: false, error: 'Endpoint returned non-JSON response.' };
+    }
+  }
 
   if (!response.ok || data.success === false) {
     const errorMsg = data.error || data.message || `Request failed with status ${response.status}`;

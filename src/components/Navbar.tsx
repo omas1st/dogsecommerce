@@ -15,6 +15,7 @@ import {
   SlidersHorizontal,
   Store,
   RefreshCw,
+  Truck,
   Menu,
   X,
 } from 'lucide-react';
@@ -53,40 +54,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     { label: 'Marketplace', route: 'marketplace' },
   ];
 
-
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-[#E8E6DF] shadow-2xs">
-      {/* Top Value Proposition Strip */}
-      <div className="bg-[#1E232A] text-white py-1.5 px-4 text-center text-[11px] font-medium tracking-wide">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="hidden sm:flex items-center gap-2 text-gray-300">
-            <ShieldCheck size={13} className="text-[#34D399]" />
-            <span>Free 2-3 Day US Ground Shipping on Orders $49+</span>
-          </div>
-          <div className="mx-auto sm:mx-0 flex items-center gap-3">
-            <span>🐾 Tailored Nutrition &amp; Gear for Every Canine Life Stage</span>
-            <span className="text-gray-500">|</span>
-            <button
-              onClick={() => onNavigate('track-order')}
-              className="text-gray-300 hover:text-white underline underline-offset-2 transition-colors cursor-pointer"
-            >
-              Track Order
-            </button>
-          </div>
-          <div className="hidden md:flex items-center gap-3">
-            {user ? (
-              <span className="text-emerald-400 text-[10px] font-semibold">
-                ● Connected as {user.firstName} ({user.role})
-              </span>
-            ) : (
-              <span className="text-gray-300 text-[10px]">
-                Complimentary 2-Day Delivery on orders over $49
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* Main Nav Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
@@ -168,6 +137,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </button>
 
                       <button
+                        onClick={() => { setIsAccountMenuOpen(false); onNavigate('track-order'); }}
+                        className="w-full flex items-center gap-2 p-2 rounded-lg text-xs font-medium text-[#0E5E58] hover:bg-[#F4F8F7] text-left"
+                      >
+                        <Truck size={14} /> Track Order
+                      </button>
+
+                      <button
                         onClick={() => { setIsAccountMenuOpen(false); onNavigate('my-pets'); }}
                         className="w-full flex items-center gap-2 p-2 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 text-left"
                       >
@@ -225,6 +201,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                         className="w-full mt-1.5 rounded-lg border border-gray-200 py-2 text-center text-xs font-semibold text-[#1E232A] hover:bg-gray-50"
                       >
                         Create Account
+                      </button>
+                      <button
+                        onClick={() => { setIsAccountMenuOpen(false); onNavigate('track-order'); }}
+                        className="w-full mt-2 flex items-center justify-center gap-2 rounded-lg border border-[#0E5E58]/30 py-2 text-center text-xs font-semibold text-[#0E5E58] bg-[#F4F8F7] hover:bg-[#E8F3F1]"
+                      >
+                        <Truck size={14} /> Track Order
                       </button>
                     </>
                   )}
@@ -301,6 +283,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {link.label}
               </button>
             ))}
+            <button
+              onClick={() => {
+                onNavigate('track-order');
+                setIsMobileMenuOpen(false);
+              }}
+              className="p-2.5 text-left text-xs font-medium rounded-lg hover:bg-gray-50 text-gray-700 flex items-center gap-2"
+            >
+              <Truck size={14} className="text-[#0E5E58]" /> Track Order
+            </button>
+            {user && (user.role === 'admin' || user.role === 'super_admin') && (
+              <button
+                onClick={() => {
+                  onNavigate('admin');
+                  setIsMobileMenuOpen(false);
+                }}
+                className="p-2.5 text-left text-xs font-bold rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 flex items-center gap-2 mt-1"
+              >
+                <SlidersHorizontal size={14} /> Admin Operations Portal
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -17,14 +17,6 @@ async function startServer() {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-  // Initialize MongoDB Atlas connection & database seed on startup
-  try {
-    await connectMongo();
-    await seedDatabase();
-  } catch (err) {
-    console.error('Database initialization error on boot:', err);
-  }
-
   // Mount API router FIRST
   app.use('/api', apiRouter);
 
@@ -52,6 +44,13 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Hound & Harbor] Production-ready Pet Platform running on http://0.0.0.0:${PORT}`);
   });
+
+  // Initialize MongoDB Atlas connection & database seed in background
+  connectMongo()
+    .then(() => seedDatabase())
+    .catch((err) => {
+      console.error('Database initialization error on boot:', err);
+    });
 }
 
 startServer();

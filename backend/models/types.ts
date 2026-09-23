@@ -424,9 +424,11 @@ export interface ISupportTicket {
   customerEmail: string;
   customerName: string;
   subject: string;
-  category: 'order' | 'payment' | 'shipping' | 'return' | 'product' | 'seller' | 'other';
+  category: 'order' | 'payment' | 'shipping' | 'return' | 'product' | 'seller' | 'other' | 'support_inquiry';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   status: 'open' | 'in_progress' | 'waiting_on_customer' | 'resolved' | 'closed';
+  message?: string;
+  initialMessage?: string;
   messages: {
     sender: 'customer' | 'agent' | 'system';
     senderName: string;

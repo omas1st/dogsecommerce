@@ -26,7 +26,10 @@ export async function connectMongo(): Promise<Db | null> {
     if (mongoDb) return mongoDb;
   }
 
-  const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
+  const uri =
+    process.env.MONGO_URI ||
+    process.env.MONGODB_URI ||
+    'mongodb+srv://omas1st:00oS5gHmnSiEAnaa@omas.wa2cr.mongodb.net/ecommerce?retryWrites=true&w=majority&appName=Omas';
   if (!uri) {
     console.log('[Database] No MONGO_URI specified, using in-memory store.');
     return null;

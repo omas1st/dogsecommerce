@@ -40,26 +40,35 @@ export const getOrderById = async (req: AuthenticatedRequest, res: Response) => 
 
 export const trackOrder = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { orderNumber, email } = req.body;
-    if (!orderNumber) {
+    const rawNumber = req.params?.orderNumber || req.body?.orderNumber || req.query?.orderNumber;
+    const email = req.body?.email || req.query?.email;
+    if (!rawNumber) {
       return res.status(400).json({ success: false, error: 'Order number is required.' });
     }
 
-    let order = await OrderModel.findOne({ orderNumber: orderNumber.trim().toUpperCase() });
+    const orderNumberStr = String(rawNumber).trim();
+
+    let order = await OrderModel.findOne({ orderNumber: orderNumberStr.toUpperCase() });
     if (!order) {
-      // Check if id was passed
-      order = await OrderModel.findById(orderNumber);
+      // Case-insensitive lookup
+      const allOrders = await OrderModel.find();
+      order = allOrders.find(
+        (o) =>
+          o.orderNumber?.toLowerCase() === orderNumberStr.toLowerCase() ||
+          o.id === orderNumberStr ||
+          o._id === orderNumberStr
+      ) || null;
     }
 
     if (!order) {
-      return res.status(404).json({ success: false, error: 'No order found matching this reference number.' });
+      return res.status(404).json({ success: false, error: 'No order found matching reference number "' + orderNumberStr + '".' });
     }
 
-    if (email && order.customerEmail.toLowerCase() !== email.trim().toLowerCase()) {
+    if (email && order.customerEmail && order.customerEmail.toLowerCase() !== String(email).trim().toLowerCase()) {
       return res.status(400).json({ success: false, error: 'Billing/shipping email address does not match this order.' });
     }
 
-    return res.json({ success: true, order });
+    return res.json({ success: true, order, events: order.timeline || [] });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }

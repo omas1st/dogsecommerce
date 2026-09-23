@@ -402,7 +402,7 @@ export const getSettings = async (req: AuthenticatedRequest, res: Response) => {
         marketplaceCommission: 0.12,
         freeShippingThreshold: 49.0,
         standardShippingFee: 5.99,
-        expressShippingFee: 14.99,
+        expressShippingFee: 2.00,
         taxRateDefault: 0.0,
         loyaltyPointsPerDollar: 5,
         enableGuestCheckout: true,

@@ -45,12 +45,12 @@ const calculateCartSummary = (cart: ICart) => {
   const taxableSubtotal = Math.max(0, subtotal - discount);
 
   const shippingOptions = ShippingService.calculateRates(taxableSubtotal);
-  const defaultShipping = shippingOptions[0].price;
+  const defaultShipping = 0;
   const { taxAmount, taxRate } = TaxService.calculateTax(taxableSubtotal);
 
   const preGiftCardTotal = Number((taxableSubtotal + defaultShipping + taxAmount).toFixed(2));
   const giftCardDeduction = Math.min(preGiftCardTotal, cart.appliedGiftCardAmount || 0);
-  const total = Math.max(0, Number((preGiftCardTotal - giftCardDeduction).toFixed(2)));
+  const total = activeItems.length === 0 ? 0 : Math.max(0, Number((preGiftCardTotal - giftCardDeduction).toFixed(2)));
 
   return {
     subtotal,
@@ -58,7 +58,7 @@ const calculateCartSummary = (cart: ICart) => {
     appliedCouponCode: cart.appliedCouponCode,
     appliedGiftCardCode: cart.appliedGiftCardCode,
     giftCardDeduction,
-    shippingCost: defaultShipping,
+    shippingCost: 0,
     shippingOptions,
     taxAmount,
     taxRate,

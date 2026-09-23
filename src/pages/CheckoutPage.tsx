@@ -497,7 +497,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigate }) => {
                       className="text-[#0E5E58]"
                     />
                     <div>
-                      <div className="text-xs font-bold text-gray-800">Free US Ground Shipping (Orders $49+)</div>
+                      <div className="text-xs font-bold text-gray-800">Free US Ground Shipping</div>
                       <div className="text-[11px] text-gray-500">Delivered in 2-4 business days</div>
                     </div>
                   </div>
@@ -522,7 +522,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigate }) => {
                       <div className="text-[11px] text-gray-500">Guaranteed 1-2 business days</div>
                     </div>
                   </div>
-                  <span className="text-xs font-bold text-gray-800">$14.99</span>
+                  <span className="text-xs font-bold text-gray-800">$2.00</span>
                 </label>
               </div>
             </div>
@@ -761,15 +761,24 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigate }) => {
               </div>
             </div>
 
-            <button
-              id="final-place-order-btn"
-              type="submit"
-              disabled={isProcessing}
-              className="w-full rounded-2xl bg-[#0E5E58] py-4 text-sm font-bold text-white shadow-xl hover:bg-[#0B4A45] active:scale-98 transition-all flex items-center justify-center gap-2"
-            >
-              <span>{isProcessing ? 'Authorizing Payment...' : `Place Order ($${summary?.total.toFixed(2)})`}</span>
-              <ArrowRight size={16} />
-            </button>
+            {(() => {
+              const expressFee = shippingMethod === 'express' ? 2.00 : 0;
+              const orderTotal = summary
+                ? Math.max(0, Number((summary.subtotal - summary.discount - summary.giftCardDeduction + expressFee).toFixed(2)))
+                : 0;
+
+              return (
+                <button
+                  id="final-place-order-btn"
+                  type="submit"
+                  disabled={isProcessing}
+                  className="w-full rounded-2xl bg-[#0E5E58] py-4 text-sm font-bold text-white shadow-xl hover:bg-[#0B4A45] active:scale-98 transition-all flex items-center justify-center gap-2"
+                >
+                  <span>{isProcessing ? 'Authorizing Payment...' : `Place Order ($${orderTotal.toFixed(2)})`}</span>
+                  <ArrowRight size={16} />
+                </button>
+              );
+            })()}
           </form>
 
           {/* Right Order Summary Column */}
@@ -799,34 +808,41 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onNavigate }) => {
               </div>
 
               {/* Financial Totals */}
-              {summary && (
-                <div className="pt-4 border-t border-gray-100 space-y-2 text-xs text-[#525B67]">
-                  <div className="flex justify-between">
-                    <span>Items Subtotal</span>
-                    <span className="font-semibold text-[#1E232A]">${summary.subtotal.toFixed(2)}</span>
-                  </div>
-                  {summary.discount > 0 && (
-                    <div className="flex justify-between text-[#0E5E58]">
-                      <span>Promotion ({summary.appliedCouponCode})</span>
-                      <span>-${summary.discount.toFixed(2)}</span>
+              {summary && (() => {
+                const expressFee = shippingMethod === 'express' ? 2.00 : 0;
+                const orderTotal = Math.max(0, Number((summary.subtotal - summary.discount - summary.giftCardDeduction + expressFee).toFixed(2)));
+
+                return (
+                  <div className="pt-4 border-t border-gray-100 space-y-2 text-xs text-[#525B67]">
+                    <div className="flex justify-between">
+                      <span>Items Subtotal</span>
+                      <span className="font-semibold text-[#1E232A]">${summary.subtotal.toFixed(2)}</span>
                     </div>
-                  )}
-                  {summary.giftCardDeduction > 0 && (
-                    <div className="flex justify-between text-[#0E5E58]">
-                      <span>Gift Card ({summary.appliedGiftCardCode})</span>
-                      <span>-${summary.giftCardDeduction.toFixed(2)}</span>
+                    {summary.discount > 0 && (
+                      <div className="flex justify-between text-[#0E5E58]">
+                        <span>Promotion ({summary.appliedCouponCode})</span>
+                        <span>-${summary.discount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {summary.giftCardDeduction > 0 && (
+                      <div className="flex justify-between text-[#0E5E58]">
+                        <span>Gift Card ({summary.appliedGiftCardCode})</span>
+                        <span>-${summary.giftCardDeduction.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span>Shipping</span>
+                      <span className={shippingMethod === 'express' ? 'font-bold text-gray-800' : 'font-bold text-[#0E5E58]'}>
+                        {shippingMethod === 'express' ? '$2.00' : 'FREE'}
+                      </span>
                     </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span>Shipping</span>
-                    <span>{shippingMethod === 'express' ? '$14.99' : 'FREE'}</span>
+                    <div className="pt-3 border-t border-gray-100 flex justify-between text-base font-bold text-[#1E232A]">
+                      <span>Total Amount</span>
+                      <span className="text-[#0E5E58]">${orderTotal.toFixed(2)}</span>
+                    </div>
                   </div>
-                  <div className="pt-3 border-t border-gray-100 flex justify-between text-base font-bold text-[#1E232A]">
-                    <span>Total Amount</span>
-                    <span className="text-[#0E5E58]">${(summary.total + (shippingMethod === 'express' ? 14.99 : 0)).toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Canine Tail-Wag Guarantee Note */}

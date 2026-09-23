@@ -216,11 +216,6 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   Our Canine Welfare Standards
                 </button>
               </li>
-              <li>
-                <button onClick={() => onNavigate('admin')} className="hover:text-amber-400 transition-colors">
-                  Admin Operations
-                </button>
-              </li>
             </ul>
           </div>
         </div>

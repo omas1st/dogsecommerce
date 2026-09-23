@@ -65,8 +65,9 @@ apiRouter.post('/checkout/place-order', authOptional, checkoutCtrl.placeOrder);
 
 // ---------------- ORDERS ----------------
 apiRouter.get('/orders', requireAuth, orderCtrl.getUserOrders);
-apiRouter.get('/orders/:id', authOptional, orderCtrl.getOrderById);
+apiRouter.get('/orders/track/:orderNumber', authOptional, orderCtrl.trackOrder);
 apiRouter.post('/orders/track', authOptional, orderCtrl.trackOrder);
+apiRouter.get('/orders/:id', authOptional, orderCtrl.getOrderById);
 apiRouter.post('/orders/:id/return', requireAuth, orderCtrl.requestReturn);
 
 // ---------------- SUBSCRIPTIONS ----------------

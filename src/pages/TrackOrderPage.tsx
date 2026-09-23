@@ -21,7 +21,7 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({
   initialOrderNumber,
   onNavigate,
 }) => {
-  const [orderNumberInput, setOrderNumberInput] = useState(initialOrderNumber || 'HND-2026-948123');
+  const [orderNumberInput, setOrderNumberInput] = useState(initialOrderNumber || '');
   const [order, setOrder] = useState<Order | null>(null);
   const [trackingEvents, setTrackingEvents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +38,7 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({
         events: any[];
       }>(`/orders/track/${encodeURIComponent(numberToSearch.trim())}`);
       setOrder(data.order);
-      setTrackingEvents(data.events || []);
+      setTrackingEvents(data.events || data.order?.timeline || []);
     } catch (err: any) {
       setErrorMessage(err.message || 'Order not found. Please check your order number.');
       setOrder(null);
@@ -49,9 +49,8 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({
 
   useEffect(() => {
     if (initialOrderNumber) {
+      setOrderNumberInput(initialOrderNumber);
       fetchTracking(initialOrderNumber);
-    } else {
-      fetchTracking('HND-2026-948123');
     }
   }, [initialOrderNumber]);
 
@@ -125,6 +124,21 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({
             </div>
           )}
         </div>
+
+        {/* Empty State when no order tracked yet */}
+        {!order && !isLoading && (
+          <div className="rounded-2xl border border-dashed border-[#D4D2C9] bg-white p-8 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-[#F4F8F7] text-[#0E5E58] flex items-center justify-center mx-auto">
+              <Package size={24} />
+            </div>
+            <h3 className="font-serif-brand text-lg font-bold text-[#1E232A]">
+              Ready to Track Your Order
+            </h3>
+            <p className="text-xs text-gray-500 max-w-md mx-auto leading-relaxed">
+              Enter your order reference number above (found in your confirmation email, SMS receipt, or account order history) to view parcel status, carrier tracking, and estimated delivery dates.
+            </p>
+          </div>
+        )}
 
         {/* Tracking Details */}
         {order && (
