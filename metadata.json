@@ -1,0 +1,6 @@
+{
+  "name": "Hound & Harbor",
+  "description": "Premier canine marketplace featuring 12 specialized dog departments with over 600 items across diverse types and shapes, seamless add-to-cart, and health-screened partner dogs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
