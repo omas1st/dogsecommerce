@@ -50,8 +50,59 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
   const [sortBy, setSortBy] = useState<string>('featured');
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
 
+  // Live supplies with newly added / edited items persisted
+  const [allSupplies, setAllSupplies] = useState<MarketplaceItem[]>(() => {
+    try {
+      const custom = localStorage.getItem('hound_marketplace_custom_supplies');
+      const customList: any[] = custom ? JSON.parse(custom) : [];
+      if (customList.length === 0) return ALL_MARKETPLACE_ITEMS;
+
+      const map = new Map<string, any>();
+      customList.forEach((it) => {
+        map.set(it.id, it);
+        if (it.slug) map.set(it.slug, it);
+      });
+      ALL_MARKETPLACE_ITEMS.forEach((it) => {
+        if (!map.has(it.id) && !map.has(it.slug)) {
+          map.set(it.id, it);
+        }
+      });
+      return Array.from(map.values());
+    } catch {
+      return ALL_MARKETPLACE_ITEMS;
+    }
+  });
+
+  // Sync with backend products to get latest additions and edits
+  useEffect(() => {
+    apiRequest<{ success: boolean; products: any[] }>('/admin/products')
+      .then((res) => {
+        if (res && res.products && res.products.length > 0) {
+          const map = new Map<string, any>();
+          res.products.forEach((p) => {
+            map.set(p.id, p);
+            if (p.slug) map.set(p.slug, p);
+          });
+          ALL_MARKETPLACE_ITEMS.forEach((it) => {
+            if (!map.has(it.id) && !map.has(it.slug)) {
+              map.set(it.id, it);
+            }
+          });
+          setAllSupplies(Array.from(map.values()));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Dogs State (100 dogs)
-  const [dogs, setDogs] = useState<MarketplaceDog[]>([]);
+  const [dogs, setDogs] = useState<MarketplaceDog[]>(() => {
+    try {
+      const custom = localStorage.getItem('hound_marketplace_custom_dogs');
+      return custom ? JSON.parse(custom) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isLoadingDogs, setIsLoadingDogs] = useState(false);
   const [activeDogSize, setActiveDogSize] = useState<string>('all');
   const [dogSearch, setDogSearch] = useState<string>('');
@@ -71,16 +122,27 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
 
   // Load Dogs when needed
   useEffect(() => {
-    if (viewMode === 'dogs' && dogs.length === 0) {
-      setIsLoadingDogs(true);
-      apiRequest<{ success: boolean; total: number; dogs: MarketplaceDog[] }>('/marketplace/dogs')
-        .then((res) => {
-          if (res && res.dogs) setDogs(res.dogs);
-        })
-        .catch(console.error)
-        .finally(() => setIsLoadingDogs(false));
-    }
-  }, [viewMode, dogs.length]);
+    setIsLoadingDogs(true);
+    apiRequest<{ success: boolean; total: number; dogs: MarketplaceDog[] }>('/marketplace/dogs')
+      .then((res) => {
+        if (res && res.dogs) {
+          try {
+            const custom = localStorage.getItem('hound_marketplace_custom_dogs');
+            const customList: MarketplaceDog[] = custom ? JSON.parse(custom) : [];
+            const map = new Map<string, MarketplaceDog>();
+            customList.forEach((d) => map.set(d.id, d));
+            res.dogs.forEach((d) => {
+              if (!map.has(d.id)) map.set(d.id, d);
+            });
+            setDogs(Array.from(map.values()));
+          } catch {
+            setDogs(res.dogs);
+          }
+        }
+      })
+      .catch(console.error)
+      .finally(() => setIsLoadingDogs(false));
+  }, []);
 
   const toggleFavorite = (dogId: string) => {
     setFavorites((prev) => {
@@ -96,9 +158,9 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
 
   // Extract available shapes and types dynamically based on selected category
   const categoryItems = useMemo(() => {
-    if (selectedCategory === 'all') return ALL_MARKETPLACE_ITEMS;
-    return ALL_MARKETPLACE_ITEMS.filter((item) => item.category === selectedCategory);
-  }, [selectedCategory]);
+    if (selectedCategory === 'all') return allSupplies;
+    return allSupplies.filter((item) => item.category === selectedCategory);
+  }, [allSupplies, selectedCategory]);
 
   const availableShapes = useMemo(() => {
     const set = new Set<string>();
@@ -116,7 +178,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
     return Array.from(set).sort();
   }, [categoryItems]);
 
-  // Filtered & Sorted Supplies Items
+  // Filtered & Sorted Supplies Items: newly added / edited items at top unless user chose custom sort
   const filteredSupplies = useMemo(() => {
     return categoryItems.filter((item) => {
       // Shape Filter
@@ -153,16 +215,24 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
       }
 
       return true;
-    }).sort((a, b) => {
+    }).sort((a: any, b: any) => {
+      // If user selected a specific sort filter, respect that filter!
       if (sortBy === 'price-low') return a.price - b.price;
       if (sortBy === 'price-high') return b.price - a.price;
-      if (sortBy === 'rating') return b.rating - a.rating;
+      if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
       if (sortBy === 'title') return a.title.localeCompare(b.title);
-      return 0; // featured default
+
+      // Default: newly added or edited items are placed at the top!
+      const aTime = a.recentlyAdminEditedAt || (a.isRecentlyUpdated ? 1 : 0) || 0;
+      const bTime = b.recentlyAdminEditedAt || (b.isRecentlyUpdated ? 1 : 0) || 0;
+      if (aTime !== bTime) {
+        return bTime - aTime;
+      }
+      return 0; // maintain base order
     });
   }, [categoryItems, selectedShape, selectedType, priceRange, suppliesSearch, sortBy]);
 
-  // Filtered Dogs
+  // Filtered Dogs: newly added / edited dogs at top unless user chose custom sort
   const filteredDogs = useMemo(() => {
     return dogs.filter((dog) => {
       if (showOnlyFavorites && !favorites.includes(dog.id)) return false;
@@ -180,11 +250,19 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
         if (!matchesName && !matchesBreed && !matchesLoc) return false;
       }
       return true;
-    }).sort((a, b) => {
+    }).sort((a: any, b: any) => {
+      // If user selected a specific sort filter, respect that filter!
       if (dogSortBy === 'price-low') return a.price - b.price;
       if (dogSortBy === 'price-high') return b.price - a.price;
       if (dogSortBy === 'weight-low') return a.weightLbs - b.weightLbs;
       if (dogSortBy === 'weight-high') return b.weightLbs - a.weightLbs;
+
+      // Default: newly added or edited dogs are placed at the top!
+      const aTime = a.recentlyAdminEditedAt || (a.isRecentlyUpdated ? 1 : 0) || 0;
+      const bTime = b.recentlyAdminEditedAt || (b.isRecentlyUpdated ? 1 : 0) || 0;
+      if (aTime !== bTime) {
+        return bTime - aTime;
+      }
       return 0;
     });
   }, [dogs, showOnlyFavorites, favorites, activeDogSize, selectedDogPartner, dogSearch, dogSortBy]);

@@ -16,7 +16,10 @@ import {
   AuditLogModel,
   AdminSettingsModel,
   ReviewModel,
+  MarketplaceDogModel,
 } from '../models';
+import { defaultMarketplaceDogs } from '../data/marketplaceDogs';
+import { backendMarketplaceCatalog } from '../data/marketplaceCatalog';
 import { OrderStatus, PaymentStatus, BuybackStatus, SellerStatus, ProductOwnerType } from '../config/constants';
 import { BuybackService } from '../services/buybackService';
 
@@ -133,8 +136,24 @@ export const getAdminPets = async (req: AuthenticatedRequest, res: Response) => 
 
 export const getAdminProducts = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const products = await ProductModel.find();
-    return res.json({ success: true, products });
+    const dbProducts = await ProductModel.find();
+    const productMap = new Map<string, any>();
+
+    // Add all DB products
+    for (const p of dbProducts) {
+      productMap.set(p.id, p);
+      if (p.slug) productMap.set(p.slug, p);
+    }
+
+    // Merge in all 624 items from backendMarketplaceCatalog so EVERYTHING in the marketplace is in admin panel
+    for (const item of backendMarketplaceCatalog) {
+      if (!productMap.has(item.id) && !productMap.has(item.slug)) {
+        productMap.set(item.id, item);
+      }
+    }
+
+    const allProducts = Array.from(new Set(productMap.values()));
+    return res.json({ success: true, count: allProducts.length, products: allProducts });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
@@ -143,23 +162,36 @@ export const getAdminProducts = async (req: AuthenticatedRequest, res: Response)
 export const createAdminProduct = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const body = req.body;
-    const slug = body.slug || `${body.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Math.random().toString(36).substring(2, 6)}`;
+    const title = body.title || body.name || 'Dog Supply Item';
+    const slug = body.slug || `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Math.random().toString(36).substring(2, 6)}`;
+    const imageUrl = body.image || (body.images && body.images[0]) || 'https://images.unsplash.com/photo-1589924691995-400dc9ecc119?auto=format&fit=crop&w=600&q=80';
+    const now = Date.now();
 
     const product = await ProductModel.create({
       ...body,
+      title,
       slug,
       ownerType: body.ownerType || ProductOwnerType.PLATFORM,
-      price: Number(body.price),
-      stock: Number(body.stock) || 50,
+      price: Number(body.price) || 0,
+      stock: Number(body.stock) !== undefined ? Number(body.stock) : 50,
+      images: body.images && body.images.length > 0 ? body.images : [imageUrl],
+      category: body.category || 'dog-food',
+      description: body.description || '',
       rating: 5.0,
       reviewsCount: 0,
       isPublished: body.isPublished !== undefined ? body.isPublished : true,
+      recentlyAdminEditedAt: now,
+      isRecentlyUpdated: true,
+      isNewlyAdded: true,
       suitability: body.suitability || {
         petTypes: ['dog'],
         lifeStages: ['all_stages'],
         sizes: ['all_sizes'],
       },
     });
+
+    // Also unshift to top of in-memory backendMarketplaceCatalog so it is immediately at the top
+    backendMarketplaceCatalog.unshift(product as any);
 
     await recordAuditLog(req, `Created new catalog product: ${product.title}`, 'Product', product.id, null, product);
     return res.status(201).json({ success: true, product });
@@ -171,12 +203,46 @@ export const createAdminProduct = async (req: AuthenticatedRequest, res: Respons
 export const updateAdminProduct = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const existing = await ProductModel.findById(id);
+    let existing = await ProductModel.findById(id);
+    if (!existing) {
+      existing = await ProductModel.findOne({ slug: id });
+    }
+    // If not yet in ProductModel, clone it from backendMarketplaceCatalog
+    if (!existing) {
+      const mktItem = backendMarketplaceCatalog.find((it) => it.id === id || it.slug === id);
+      if (mktItem) {
+        existing = await ProductModel.create(mktItem as any);
+      }
+    }
     if (!existing) return res.status(404).json({ success: false, error: 'Product not found.' });
 
-    const updated = await ProductModel.findByIdAndUpdate(id, req.body);
-    await recordAuditLog(req, `Updated product: ${existing.title}`, 'Product', id, existing, updated);
+    const now = Date.now();
+    const updates = { ...req.body };
+    if (updates.name && !updates.title) updates.title = updates.name;
+    if (updates.price !== undefined) updates.price = Number(updates.price);
+    if (updates.image) {
+      updates.images = [updates.image, ...(existing.images?.filter((img: string) => img !== updates.image) || [])];
+    }
+    updates.recentlyAdminEditedAt = now;
+    updates.isRecentlyUpdated = true;
+    updates.updatedAt = new Date().toISOString();
 
+    const updated = await ProductModel.findByIdAndUpdate(existing.id, updates);
+
+    // Also update in-memory backendMarketplaceCatalog and place at top of list
+    const mktIdx = backendMarketplaceCatalog.findIndex((it) => it.id === id || it.slug === id);
+    if (mktIdx !== -1) {
+      const updatedItem = {
+        ...backendMarketplaceCatalog[mktIdx],
+        ...updates,
+      };
+      backendMarketplaceCatalog.splice(mktIdx, 1);
+      backendMarketplaceCatalog.unshift(updatedItem);
+    } else {
+      backendMarketplaceCatalog.unshift(updated as any);
+    }
+
+    await recordAuditLog(req, `Updated product: ${existing.title}`, 'Product', existing.id, existing, updated);
     return res.json({ success: true, product: updated });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
@@ -186,13 +252,149 @@ export const updateAdminProduct = async (req: AuthenticatedRequest, res: Respons
 export const deleteAdminProduct = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const existing = await ProductModel.findById(id);
-    if (!existing) return res.status(404).json({ success: false, error: 'Product not found.' });
+    let existing = await ProductModel.findById(id);
+    if (!existing) {
+      existing = await ProductModel.findOne({ slug: id });
+    }
+    if (existing) {
+      await ProductModel.findByIdAndDelete(existing.id);
+    }
+    const mktIdx = backendMarketplaceCatalog.findIndex((it) => it.id === id || it.slug === id);
+    if (mktIdx !== -1) {
+      backendMarketplaceCatalog.splice(mktIdx, 1);
+    }
+    if (!existing && mktIdx === -1) {
+      return res.status(404).json({ success: false, error: 'Product not found.' });
+    }
 
-    await ProductModel.findByIdAndDelete(id);
-    await recordAuditLog(req, `Deleted product: ${existing.title}`, 'Product', id, existing, null);
-
+    await recordAuditLog(req, `Deleted product: ${id}`, 'Product', id, existing, null);
     return res.json({ success: true, message: 'Product deleted.' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+export const getAdminMarketplaceDogs = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const dbDogs = await MarketplaceDogModel.find();
+    const dogMap = new Map<string, any>();
+    for (const d of dbDogs) {
+      dogMap.set(d.id, d);
+    }
+    for (const d of defaultMarketplaceDogs) {
+      if (!dogMap.has(d.id)) {
+        dogMap.set(d.id, d);
+      }
+    }
+    const allDogs = Array.from(dogMap.values());
+    return res.json({ success: true, count: allDogs.length, dogs: allDogs });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+export const createAdminMarketplaceDog = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const body = req.body;
+    const now = Date.now();
+    const dog = await MarketplaceDogModel.create({
+      id: body.id || `dog-${Date.now()}`,
+      name: body.name || 'Unnamed Canine',
+      breed: body.breed || 'Mixed Breed',
+      size: body.size || 'medium',
+      weightLbs: Number(body.weightLbs) || 25,
+      price: Number(body.price) || 0,
+      comparePrice: body.comparePrice ? Number(body.comparePrice) : undefined,
+      partnerSource: body.partnerSource || 'Hound & Harbor Adoption Network',
+      ageYears: Number(body.ageYears) || 1,
+      ageMonths: Number(body.ageMonths) || 0,
+      gender: body.gender || 'male',
+      isNeuteredOrSpayed: body.isNeuteredOrSpayed !== undefined ? body.isNeuteredOrSpayed : true,
+      isVaccinated: body.isVaccinated !== undefined ? body.isVaccinated : true,
+      isMicrochipped: body.isMicrochipped !== undefined ? body.isMicrochipped : true,
+      energyLevel: body.energyLevel || 'playful',
+      photoUrl: body.photoUrl || body.image || 'https://images.dog.ceo/breeds/retriever-golden/n02099601_100.jpg',
+      location: body.location || 'Austin, TX',
+      chewyPetcoBundle: body.chewyPetcoBundle || 'Starter Kit Included',
+      temperament: Array.isArray(body.temperament)
+        ? body.temperament
+        : body.temperament
+        ? String(body.temperament).split(',').map((s: string) => s.trim())
+        : ['Friendly', 'Loving', 'Trainable'],
+      description: body.description || 'Gentle and affectionate companion looking for a loving home.',
+      healthGuarantee: body.healthGuarantee || '1-Year Comprehensive Health Shield',
+      recentlyAdminEditedAt: now,
+      isRecentlyUpdated: true,
+      isNewlyAdded: true,
+    });
+
+    // Unshift to top of in-memory defaultMarketplaceDogs
+    defaultMarketplaceDogs.unshift(dog as any);
+
+    await recordAuditLog(req, `Created new dog for adoption: ${dog.name}`, 'MarketplaceDog', dog.id, null, dog);
+    return res.status(201).json({ success: true, dog });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+export const updateAdminMarketplaceDog = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    let existing = await MarketplaceDogModel.findById(id);
+    if (!existing) {
+      const defaultDog = defaultMarketplaceDogs.find((d) => d.id === id);
+      if (defaultDog) {
+        existing = await MarketplaceDogModel.create(defaultDog);
+      }
+    }
+    if (!existing) return res.status(404).json({ success: false, error: 'Dog profile not found.' });
+
+    const now = Date.now();
+    const updates = { ...req.body };
+    if (updates.price !== undefined) updates.price = Number(updates.price);
+    if (updates.image && !updates.photoUrl) updates.photoUrl = updates.image;
+    if (typeof updates.temperament === 'string') {
+      updates.temperament = updates.temperament.split(',').map((s: string) => s.trim());
+    }
+    updates.recentlyAdminEditedAt = now;
+    updates.isRecentlyUpdated = true;
+    updates.updatedAt = new Date().toISOString();
+
+    const updated = await MarketplaceDogModel.findByIdAndUpdate(existing.id, updates);
+    const dIdx = defaultMarketplaceDogs.findIndex((d) => d.id === id);
+    if (dIdx !== -1) {
+      const updatedDog = { ...defaultMarketplaceDogs[dIdx], ...updates };
+      defaultMarketplaceDogs.splice(dIdx, 1);
+      defaultMarketplaceDogs.unshift(updatedDog);
+    } else {
+      defaultMarketplaceDogs.unshift(updated as any);
+    }
+
+    await recordAuditLog(req, `Updated adoption dog: ${existing.name}`, 'MarketplaceDog', existing.id, existing, updated);
+    return res.json({ success: true, dog: updated });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+export const deleteAdminMarketplaceDog = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    let existing = await MarketplaceDogModel.findById(id);
+    if (existing) {
+      await MarketplaceDogModel.findByIdAndDelete(existing.id);
+    }
+    const dIdx = defaultMarketplaceDogs.findIndex((d) => d.id === id);
+    if (dIdx !== -1) {
+      defaultMarketplaceDogs.splice(dIdx, 1);
+    }
+    if (!existing && dIdx === -1) {
+      return res.status(404).json({ success: false, error: 'Dog profile not found.' });
+    }
+
+    await recordAuditLog(req, `Deleted adoption dog: ${id}`, 'MarketplaceDog', id, existing, null);
+    return res.json({ success: true, message: 'Dog profile deleted.' });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }

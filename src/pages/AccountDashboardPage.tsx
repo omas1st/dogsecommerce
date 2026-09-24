@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { usePets } from '../context/PetContext';
 import { apiRequest } from '../services/api';
 import { Order, Subscription } from '../types';
+import { AdminDashboardPage } from './AdminDashboardPage';
 import {
   Package,
   Repeat,
@@ -100,6 +101,11 @@ export const AccountDashboardPage: React.FC<AccountDashboardPageProps> = ({ init
     );
   }
 
+  // If user has admin privileges, the Admin Dashboard is the primary page
+  if (user.role === 'admin' || user.role === 'super_admin') {
+    return <AdminDashboardPage onNavigate={onNavigate} />;
+  }
+
   const handleUpdateSubStatus = async (subId: string, newStatus: 'active' | 'paused' | 'cancelled') => {
     try {
       await apiRequest(`/subscriptions/${subId}/status`, {
@@ -175,31 +181,6 @@ export const AccountDashboardPage: React.FC<AccountDashboardPageProps> = ({ init
           </div>
         </div>
 
-        {/* Super Admin Operations & Platform Controls Panel */}
-        {(user.role === 'admin' || user.role === 'super_admin') && (
-          <div className="rounded-2xl border border-amber-300 bg-linear-to-r from-amber-50 via-orange-50 to-amber-50 p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="space-y-1.5">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[11px] font-bold">
-                <ShieldCheck size={13} className="text-amber-800" />
-                <span>Super Admin Privileges Active</span>
-              </div>
-              <h2 className="font-serif-brand text-lg font-bold text-gray-900">
-                Admin Operations &amp; Management Dashboard
-              </h2>
-              <p className="text-xs text-gray-600 max-w-xl leading-relaxed">
-                You are authenticated with administrative privileges. Manage orders, products, sellers, promotions, and platform metrics from the Admin Operations command center.
-              </p>
-            </div>
-            <button
-              onClick={() => onNavigate('admin')}
-              className="rounded-xl bg-amber-700 hover:bg-amber-800 text-white px-5 py-3 text-xs font-bold shadow-md transition-all flex items-center gap-2 shrink-0 cursor-pointer active:scale-95"
-            >
-              <SlidersHorizontal size={15} />
-              <span>Launch Admin Operations</span>
-            </button>
-          </div>
-        )}
-
         {/* Tab Navigation */}
         <div className="flex border-b border-gray-200 gap-4 text-xs font-bold overflow-x-auto">
           <button
@@ -241,16 +222,6 @@ export const AccountDashboardPage: React.FC<AccountDashboardPageProps> = ({ init
             <LifeBuoy size={16} />
             <span>Concierge Support ({tickets.length})</span>
           </button>
-
-          {(user.role === 'admin' || user.role === 'super_admin') && (
-            <button
-              onClick={() => onNavigate('admin')}
-              className="pb-3 px-2 flex items-center gap-2 transition-colors text-amber-700 hover:text-amber-900 border-b-2 border-transparent hover:border-amber-600 ml-auto shrink-0"
-            >
-              <SlidersHorizontal size={15} />
-              <span>Admin Operations →</span>
-            </button>
-          )}
         </div>
 
         {/* Tab: Orders */}

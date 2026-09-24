@@ -133,6 +133,9 @@ export interface IProduct {
   };
   featured?: boolean;
   bestSeller?: boolean;
+  recentlyAdminEditedAt?: number;
+  isRecentlyUpdated?: boolean;
+  isNewlyAdded?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -494,5 +497,9 @@ export interface IMarketplaceDog {
   temperament: string[];
   description: string;
   healthGuarantee: string;
+  recentlyAdminEditedAt?: number;
+  isRecentlyUpdated?: boolean;
+  isNewlyAdded?: boolean;
+  updatedAt?: string;
 }
 

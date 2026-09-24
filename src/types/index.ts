@@ -330,5 +330,9 @@ export interface MarketplaceDog {
   temperament: string[];
   description: string;
   healthGuarantee: string;
+  recentlyAdminEditedAt?: number;
+  isRecentlyUpdated?: boolean;
+  isNewlyAdded?: boolean;
+  updatedAt?: string;
 }
 

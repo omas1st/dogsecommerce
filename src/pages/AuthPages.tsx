@@ -43,8 +43,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           phone,
         });
       }
-      if (onSuccess) onSuccess();
-      else onNavigate('account');
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        const adminEmails = ['omas7th@gmail.com', 'angelkimberly1st@gmail.com', 'admin@houndandharbor.com'];
+        if (adminEmails.includes(email.toLowerCase().trim())) {
+          onNavigate('admin');
+        } else {
+          onNavigate('account');
+        }
+      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Authentication failed. Please check credentials.');
     }

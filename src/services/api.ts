@@ -15,6 +15,7 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
     'x-guest-session-id': guestId,
     ...(options.headers as Record<string, string>),
   };
@@ -23,7 +24,17 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  // Prevent double '/api' prefixing and ensure leading slash
+  let cleanEndpoint = endpoint.trim();
+  if (cleanEndpoint.startsWith('/api/')) {
+    cleanEndpoint = cleanEndpoint.replace(/^\/api/, '');
+  } else if (cleanEndpoint === '/api') {
+    cleanEndpoint = '/';
+  } else if (!cleanEndpoint.startsWith('/')) {
+    cleanEndpoint = `/${cleanEndpoint}`;
+  }
+
+  const response = await fetch(`${API_BASE}${cleanEndpoint}`, {
     ...options,
     headers,
   });
@@ -39,13 +50,13 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestInit
     }
   } else {
     const text = await response.text();
-    if (!response.ok) {
-      throw new Error(`Server returned error ${response.status}`);
-    }
     try {
       data = JSON.parse(text);
     } catch {
-      data = { success: false, error: 'Endpoint returned non-JSON response.' };
+      if (!response.ok) {
+        throw new Error(`Server returned error ${response.status}: ${response.statusText || 'Request failed'}`);
+      }
+      data = { success: false, error: `Unexpected non-JSON response for ${cleanEndpoint} (${response.status})` };
     }
   }
 

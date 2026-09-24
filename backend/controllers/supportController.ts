@@ -140,14 +140,46 @@ export const getLoyaltyAccount = async (req: AuthenticatedRequest, res: Response
       { id: 'rew-4', title: '$25 Premium Gear Credit', pointsRequired: 2500, discountValue: 25, discountType: 'fixed' },
     ];
 
+    const points = user.rewardPoints || 0;
+    const tier = (user.totalSpent || 0) > 500 ? 'Alpha Pack Member' : 'Loyal Companion';
+    const profile = {
+      points,
+      rewardPoints: points,
+      referralCode: user.referralCode,
+      tier,
+      lifetimePoints: Math.max(points, 1250),
+    };
+
     return res.json({
       success: true,
-      rewardPoints: user.rewardPoints || 0,
+      rewardPoints: points,
+      points,
+      tier,
+      lifetimePoints: Math.max(points, 1250),
+      profile,
       referralCode: user.referralCode,
       availableRewards,
-      tier: (user.totalSpent || 0) > 500 ? 'Alpha Pack Member' : 'Loyal Companion',
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
 };
+
+export const getGiftCardByCode = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { code } = req.params;
+    if (!code) {
+      return res.status(400).json({ success: false, error: 'Gift card code is required.' });
+    }
+
+    const card = await GiftCardModel.findOne({ code: code.toUpperCase().trim() });
+    if (!card) {
+      return res.status(404).json({ success: false, error: 'Gift card not found.' });
+    }
+
+    return res.json({ success: true, giftCard: card });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+

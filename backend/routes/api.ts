@@ -65,6 +65,7 @@ apiRouter.post('/checkout/place-order', authOptional, checkoutCtrl.placeOrder);
 
 // ---------------- ORDERS ----------------
 apiRouter.get('/orders', requireAuth, orderCtrl.getUserOrders);
+apiRouter.get('/orders/my-orders', requireAuth, orderCtrl.getUserOrders);
 apiRouter.get('/orders/track/:orderNumber', authOptional, orderCtrl.trackOrder);
 apiRouter.post('/orders/track', authOptional, orderCtrl.trackOrder);
 apiRouter.get('/orders/:id', authOptional, orderCtrl.getOrderById);
@@ -72,8 +73,11 @@ apiRouter.post('/orders/:id/return', requireAuth, orderCtrl.requestReturn);
 
 // ---------------- SUBSCRIPTIONS ----------------
 apiRouter.get('/subscriptions', requireAuth, subCtrl.getUserSubscriptions);
+apiRouter.get('/subscriptions/my-subscriptions', requireAuth, subCtrl.getUserSubscriptions);
 apiRouter.put('/subscriptions/:id', requireAuth, subCtrl.updateSubscription);
+apiRouter.put('/subscriptions/:id/status', requireAuth, subCtrl.updateSubscription);
 apiRouter.delete('/subscriptions/:id', requireAuth, subCtrl.cancelSubscription);
+
 
 // ---------------- MARKETPLACE & SELLERS ----------------
 apiRouter.get('/marketplace/items', marketCtrl.getMarketplaceItems);
@@ -96,7 +100,10 @@ apiRouter.post('/seller/payouts/request', requireAuth, sellerCtrl.requestSellerP
 
 // ---------------- REWARDS & NOTIFICATIONS ----------------
 apiRouter.get('/rewards', requireAuth, supportCtrl.getLoyaltyAccount);
+apiRouter.get('/loyalty/profile', requireAuth, supportCtrl.getLoyaltyAccount);
+apiRouter.get('/gift-cards/:code', authOptional, supportCtrl.getGiftCardByCode);
 apiRouter.get('/notifications', requireAuth, supportCtrl.getNotifications);
+
 apiRouter.put('/notifications/:id/read', requireAuth, supportCtrl.markNotificationRead);
 apiRouter.get('/support/tickets', requireAuth, supportCtrl.getSupportTickets);
 apiRouter.post('/support/tickets', authOptional, supportCtrl.createSupportTicket);
@@ -111,6 +118,10 @@ apiRouter.get('/admin/products', requireAuth, requireAdmin, adminCtrl.getAdminPr
 apiRouter.post('/admin/products', requireAuth, requireAdmin, adminCtrl.createAdminProduct);
 apiRouter.put('/admin/products/:id', requireAuth, requireAdmin, adminCtrl.updateAdminProduct);
 apiRouter.delete('/admin/products/:id', requireAuth, requireAdmin, adminCtrl.deleteAdminProduct);
+apiRouter.get('/admin/marketplace-dogs', requireAuth, requireAdmin, adminCtrl.getAdminMarketplaceDogs);
+apiRouter.post('/admin/marketplace-dogs', requireAuth, requireAdmin, adminCtrl.createAdminMarketplaceDog);
+apiRouter.put('/admin/marketplace-dogs/:id', requireAuth, requireAdmin, adminCtrl.updateAdminMarketplaceDog);
+apiRouter.delete('/admin/marketplace-dogs/:id', requireAuth, requireAdmin, adminCtrl.deleteAdminMarketplaceDog);
 apiRouter.get('/admin/orders', requireAuth, requireAdmin, adminCtrl.getAdminOrders);
 apiRouter.put('/admin/orders/:id/status', requireAuth, requireAdmin, adminCtrl.updateOrderStatus);
 apiRouter.get('/admin/sellers', requireAuth, requireAdmin, adminCtrl.getAdminSellers);

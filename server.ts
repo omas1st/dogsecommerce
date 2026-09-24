@@ -20,8 +20,17 @@ async function startServer() {
   // Mount API router FIRST
   app.use('/api', apiRouter);
 
+  // Catch-all for undefined /api routes so they return JSON 404, never Vite HTML
+  app.all('/api/*', (req, res) => {
+    res.status(404).json({
+      success: false,
+      error: `API endpoint not found: ${req.method} ${req.originalUrl}`,
+    });
+  });
+
   // Global API error handler
   app.use(errorHandler);
+
 
   // Serve static public assets
   app.use(express.static(path.join(process.cwd(), 'public')));

@@ -58,11 +58,17 @@ export const MarketplaceItemCard: React.FC<MarketplaceItemCardProps> = ({
 
         {/* Top Badges */}
         <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1 pointer-events-none">
-          {/* Modeled on dog badge */}
-          <span className="inline-flex items-center gap-1 rounded-md bg-white/95 px-2 py-0.5 text-[10px] font-bold text-[#1E232A] shadow-xs backdrop-blur-xs border border-gray-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Modeled on Dog
-          </span>
+          {(item as any).recentlyAdminEditedAt || (item as any).isRecentlyUpdated ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-[#0E5E58] text-white px-2 py-0.5 text-[10px] font-bold shadow-xs">
+              <Sparkles size={11} className="text-amber-300" />
+              {(item as any).isNewlyAdded ? 'Newly Added' : 'Just Updated'}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-md bg-white/95 px-2 py-0.5 text-[10px] font-bold text-[#1E232A] shadow-xs backdrop-blur-xs border border-gray-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Modeled on Dog
+            </span>
+          )}
 
           <span className="rounded-md bg-[#E05338] px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
             60% OFF Online

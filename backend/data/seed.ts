@@ -18,6 +18,7 @@ import {
   MarketplaceDogModel,
 } from '../models';
 import { defaultMarketplaceDogs } from './marketplaceDogs';
+import { backendMarketplaceCatalog } from './marketplaceCatalog';
 import {
   UserRole,
   ProductOwnerType,
@@ -61,6 +62,33 @@ export const seedDatabase = async () => {
       passwordHash: passwordHashAdmin,
       status: 'active',
     });
+  }
+
+  // Admin account for angelkimberly1st@gmail.com and admin@houndandharbor.com
+  const otherAdmins = ['angelkimberly1st@gmail.com', 'admin@houndandharbor.com'];
+  for (const admEmail of otherAdmins) {
+    let existingAdm = await UserModel.findOne({ email: admEmail });
+    if (!existingAdm) {
+      await UserModel.create({
+        email: admEmail,
+        passwordHash: passwordHashAdmin,
+        firstName: admEmail.split('@')[0],
+        lastName: 'Admin',
+        phone: '+1 (415) 890-4412',
+        role: UserRole.SUPER_ADMIN,
+        isEmailVerified: true,
+        rewardPoints: 10000,
+        totalSpent: 0,
+        ordersCount: 0,
+        status: 'active',
+        referralCode: `HOUND-${admEmail.split('@')[0].toUpperCase().slice(0, 6)}`,
+      });
+    } else {
+      await UserModel.findByIdAndUpdate(existingAdm.id, {
+        role: UserRole.SUPER_ADMIN,
+        status: 'active',
+      });
+    }
   }
 
   // 2. Demo Customer Account
@@ -418,6 +446,19 @@ export const seedDatabase = async () => {
       }
     }
     console.log(`[Seed] 100 Marketplace Dogs populated successfully across all sizes (toy, small, medium, large, giant).`);
+  }
+
+  // 12. Seed Marketplace 624 items into ProductModel
+  const existingProducts = await ProductModel.find();
+  if (existingProducts.length < 600) {
+    console.log(`[Seed] Populating 624 marketplace items into ProductModel...`);
+    for (const mktItem of backendMarketplaceCatalog) {
+      const exists = await ProductModel.findById(mktItem.id);
+      if (!exists) {
+        await ProductModel.create(mktItem as any);
+      }
+    }
+    console.log(`[Seed] 624 Marketplace Items populated into ProductModel.`);
   }
 
   db.flush();

@@ -303,7 +303,7 @@ export const getMarketplaceDogs = async (req: Request, res: Response) => {
       );
     }
 
-    // Sort
+    // Sort: if custom sort is selected, use it. Otherwise, newly added/edited items are at the top!
     if (sortBy === 'price-low') {
       filtered.sort((a, b) => a.price - b.price);
     } else if (sortBy === 'price-high') {
@@ -314,6 +314,16 @@ export const getMarketplaceDogs = async (req: Request, res: Response) => {
       filtered.sort((a, b) => b.weightLbs - a.weightLbs);
     } else if (sortBy === 'name') {
       filtered.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      // Default: place newly added or edited dogs at the top
+      filtered.sort((a: any, b: any) => {
+        const aTime = a.recentlyAdminEditedAt || (a.isRecentlyUpdated ? 1 : 0) || 0;
+        const bTime = b.recentlyAdminEditedAt || (b.isRecentlyUpdated ? 1 : 0) || 0;
+        if (aTime !== bTime) {
+          return bTime - aTime;
+        }
+        return 0;
+      });
     }
 
     const total = filtered.length;
@@ -378,6 +388,16 @@ export const getMarketplaceItems = async (req: Request, res: Response) => {
       items.sort((a, b) => b.price - a.price);
     } else if (sort === 'rating') {
       items.sort((a, b) => b.rating - a.rating);
+    } else {
+      // Default: place newly added or edited items at the top of the marketplace
+      items.sort((a: any, b: any) => {
+        const aTime = a.recentlyAdminEditedAt || (a.isRecentlyUpdated ? 1 : 0) || 0;
+        const bTime = b.recentlyAdminEditedAt || (b.isRecentlyUpdated ? 1 : 0) || 0;
+        if (aTime !== bTime) {
+          return bTime - aTime;
+        }
+        return 0;
+      });
     }
 
     const pageNum = Math.max(1, Number(page) || 1);

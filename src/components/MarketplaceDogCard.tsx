@@ -90,8 +90,14 @@ export const MarketplaceDogCard: React.FC<MarketplaceDogCardProps> = ({
           </button>
         )}
 
-        {/* Size Badge */}
-        <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5">
+        {/* Size Badge & Priority Update Badge */}
+        <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 items-start">
+          {(dog as any).recentlyAdminEditedAt || (dog as any).isRecentlyUpdated ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#0E5E58] text-white px-2.5 py-0.5 text-[10px] font-bold shadow-xs">
+              <Sparkles size={11} className="text-amber-300" />
+              {(dog as any).isNewlyAdded ? 'Newly Added' : 'Just Updated'}
+            </span>
+          ) : null}
           <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${sizeInfo.badgeClass}`}>
             {sizeInfo.label}
           </span>
