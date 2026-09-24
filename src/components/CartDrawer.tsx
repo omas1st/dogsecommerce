@@ -62,17 +62,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
+        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
         onClick={handleClose}
       />
 
-      <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
-        <div className="w-screen max-w-md bg-[#FAF9F6] shadow-2xl flex flex-col justify-between">
+      <div className="fixed inset-y-0 right-0 flex max-w-full pl-0 sm:pl-10 pointer-events-none">
+        <div className="w-screen max-w-md bg-[#FAF9F6] shadow-2xl flex flex-col h-full max-h-[100dvh] pointer-events-auto overflow-hidden">
           {/* Header */}
-          <div className="p-5 border-b border-[#E8E6DF] bg-white flex items-center justify-between">
+          <div className="shrink-0 p-4 sm:p-5 border-b border-[#E8E6DF] bg-white flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShoppingBag size={20} className="text-[#0E5E58]" />
-              <h2 className="text-lg font-bold text-[#1E232A]">Your Shopping Cart</h2>
+              <h2 className="text-base sm:text-lg font-bold text-[#1E232A]">Your Shopping Cart</h2>
               <span className="rounded-full bg-[#F4F2EB] px-2 py-0.5 text-xs font-semibold text-[#525B67]">
                 {summary?.itemsCount || 0}
               </span>
@@ -86,7 +86,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           </div>
 
           {/* Free Shipping Progress */}
-          <div className="bg-[#F4F8F7] px-5 py-3 border-b border-[#E2EFEB]">
+          <div className="shrink-0 bg-[#F4F8F7] px-4 sm:px-5 py-2.5 sm:py-3 border-b border-[#E2EFEB]">
             <div className="flex items-center justify-between text-xs font-medium text-[#1E232A]">
               {remainingForFreeShipping > 0 ? (
                 <span>
@@ -108,7 +108,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           </div>
 
           {/* Cart Items Scrollable List */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 overscroll-contain">
             {items.length === 0 ? (
               <div className="text-center py-16">
                 <div className="mx-auto w-16 h-16 rounded-full bg-[#F0EFEA] flex items-center justify-center text-gray-400 mb-3">
@@ -260,10 +260,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             )}
           </div>
 
-          {/* Drawer Footer with Calculation */}
+          {/* Drawer Footer with Calculation - shrink-0 to prevent being pushed off screen */}
           {items.length > 0 && summary && (
-            <div className="border-t border-[#E8E6DF] bg-white p-5 space-y-3">
-              <div className="space-y-1.5 text-xs text-[#525B67]">
+            <div className="shrink-0 border-t border-[#E8E6DF] bg-white p-4 sm:p-5 space-y-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+              <div className="space-y-1 text-xs text-[#525B67]">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
                   <span className="font-semibold text-[#1E232A]">${summary.subtotal.toFixed(2)}</span>
@@ -280,7 +280,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <span>-${summary.giftCardDeduction.toFixed(2)}</span>
                   </div>
                 )}
-                <div className="pt-2 border-t border-gray-100 flex justify-between text-sm font-bold text-[#1E232A]">
+                <div className="pt-1.5 border-t border-gray-100 flex justify-between text-sm font-bold text-[#1E232A]">
                   <span>Estimated Total</span>
                   <span className="text-base text-[#0E5E58]">
                     ${Math.max(0, summary.subtotal - summary.discount - summary.giftCardDeduction).toFixed(2)}
@@ -290,12 +290,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
               <button
                 id="checkout-cta-btn"
+                type="button"
                 onClick={() => {
                   setIsCartOpen(false);
                   onProceedToCheckout();
                 }}
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#0E5E58] py-3 text-sm font-semibold text-white shadow-md hover:bg-[#0B4A45] active:scale-98 transition-all"
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#0E5E58] py-3.5 px-4 text-sm font-bold text-white shadow-md hover:bg-[#0B4A45] active:scale-[0.99] transition-all cursor-pointer"
               >
                 <span>Proceed to Checkout</span>
                 <ArrowRight size={16} />

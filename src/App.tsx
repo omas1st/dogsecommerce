@@ -107,7 +107,7 @@ function AppContent() {
   const isKnown = knownRoutes.has(currentRoute);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF9F6] text-[#1E232A]">
+    <div className="min-h-screen flex flex-col bg-[#FAF9F6] text-[#1E232A] overflow-x-hidden w-full max-w-full">
       {/* Top Navigation */}
       <Navbar
         currentRoute={currentRoute}
@@ -117,7 +117,7 @@ function AppContent() {
 
       {/* Prominent Back to Marketplace Sub-Nav Strip (Visible on subpages like checkout, account) */}
       {currentRoute !== 'marketplace' && currentRoute !== 'home' && (
-        <aside aria-label="Page navigation" className="bg-white/95 border-b border-[#E8E6DF] py-2.5 px-4 sticky top-16 z-30 shadow-2xs backdrop-blur-md">
+        <aside aria-label="Page navigation" className="bg-white/95 border-b border-[#E8E6DF] py-2.5 px-4 sticky top-16 z-30 shadow-2xs backdrop-blur-md w-full max-w-full">
           <div className="max-w-7xl mx-auto flex items-center justify-between text-xs gap-3">
             <button
               onClick={() => handleNavigate('marketplace')}
@@ -147,7 +147,7 @@ function AppContent() {
       )}
 
       {/* Main Routed Content */}
-      <main className="flex-1">
+      <main className="flex-1 w-full max-w-full min-w-0">
         {(currentRoute === 'home' || currentRoute === 'marketplace') && (
           <MarketplacePage
             initialSearch={routeParams.search}

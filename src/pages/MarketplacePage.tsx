@@ -192,7 +192,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
   const activeCategoryDef = MARKETPLACE_CATEGORIES.find((c) => c.id === selectedCategory);
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] pb-24 text-[#1E232A]">
+    <div className="min-h-screen bg-[#FAF9F6] pb-24 text-[#1E232A] w-full max-w-full overflow-x-hidden">
       {/* Reservation Toast */}
       {reservationNotice && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl bg-[#0E5E58] px-5 py-3.5 text-white shadow-2xl animate-bounce">
@@ -208,7 +208,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
       )}
 
       {/* Hero Header */}
-      <section className="relative overflow-hidden bg-[#1E232A] text-white border-b border-gray-800">
+      <section className="relative overflow-hidden bg-[#1E232A] text-white border-b border-gray-800 w-full max-w-full">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#0E5E58_1px,transparent_1px)] [background-size:16px_16px]" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-14">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -253,11 +253,11 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
       </section>
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 w-full max-w-full min-w-0">
         {viewMode === 'supplies' ? (
-          <div>
+          <div className="w-full max-w-full min-w-0">
             {/* 12 Departments Scrollable Filter Bar */}
-            <div className="mb-6">
+            <div className="mb-6 w-full max-w-full min-w-0">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
                   Select Dog Department ({MARKETPLACE_CATEGORIES.length} Categories):
@@ -267,7 +267,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                 </span>
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin w-full max-w-full">
                 <button
                   type="button"
                   onClick={() => {
@@ -313,7 +313,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
 
             {/* Department Info Banner if specific category selected */}
             {activeCategoryDef && selectedCategory !== 'all' && (
-              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E8E6DF] mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+              <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E8E6DF] mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs w-full max-w-full">
                 <div>
                   <h2 className="font-serif-brand text-xl font-bold text-[#1E232A] mb-1">
                     {activeCategoryDef.name}
@@ -330,36 +330,80 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
               </div>
             )}
 
-            {/* Controls Bar: Search, Shape Filter, Type Filter, Price, Sort */}
-            <div className="bg-white rounded-2xl p-4 border border-[#E8E6DF] mb-6 shadow-2xs space-y-3">
-              {/* Row 1: Search & Sorting */}
-              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
-                <div className="relative flex-1">
-                  <Search size={16} className="absolute left-3.5 top-3 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search by title, shape (round, rectangular), type (orthopedic, waterproof)..."
-                    value={suppliesSearch}
-                    onChange={(e) => setSuppliesSearch(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-[#FAF9F6] py-2.5 pl-10 pr-4 text-xs text-[#1E232A] focus:border-[#0E5E58] focus:bg-white focus:outline-none transition-all"
-                  />
-                  {suppliesSearch && (
-                    <button
-                      onClick={() => setSuppliesSearch('')}
-                      className="absolute right-3 top-2.5 text-xs text-gray-400 hover:text-gray-600"
-                    >
-                      ✕
-                    </button>
-                  )}
+            {/* Controls Bar: Search, Shape Dropdown, Type Dropdown, Price Dropdown, Sort Dropdown */}
+            <div className="bg-white rounded-2xl p-3.5 sm:p-4 border border-[#E8E6DF] mb-6 shadow-2xs space-y-3 w-full max-w-full">
+              {/* Row 1: Search */}
+              <div className="relative w-full">
+                <Search size={16} className="absolute left-3.5 top-3 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by title, shape (round, rectangular), type (orthopedic, waterproof)..."
+                  value={suppliesSearch}
+                  onChange={(e) => setSuppliesSearch(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-[#FAF9F6] py-2.5 pl-10 pr-9 text-xs text-[#1E232A] focus:border-[#0E5E58] focus:bg-white focus:outline-none transition-all"
+                />
+                {suppliesSearch && (
+                  <button
+                    onClick={() => setSuppliesSearch('')}
+                    className="absolute right-3 top-2.5 text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Row 2: Dropdowns - Shape, Type, Price, Sort */}
+              <div className="pt-2 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 text-xs">
+                {/* Shape Filter Dropdown */}
+                <div className="flex flex-col gap-1 min-w-0">
+                  <label htmlFor="filter-shape" className="text-[11px] font-bold text-gray-600 flex items-center gap-1">
+                    <Box size={13} className="text-[#0E5E58]" /> Shape
+                  </label>
+                  <select
+                    id="filter-shape"
+                    value={selectedShape}
+                    onChange={(e) => setSelectedShape(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-[#FAF9F6] px-2.5 py-2 text-xs font-semibold text-gray-800 focus:border-[#0E5E58] focus:bg-white focus:outline-none truncate"
+                  >
+                    <option value="all">All Shapes ({availableShapes.length})</option>
+                    {availableShapes.map((shape) => (
+                      <option key={shape} value={shape}>
+                        {shape}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Price Filter */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-gray-500 whitespace-nowrap">Price:</span>
+                {/* Type Filter Dropdown */}
+                <div className="flex flex-col gap-1 min-w-0">
+                  <label htmlFor="filter-type" className="text-[11px] font-bold text-gray-600 flex items-center gap-1">
+                    <Layers size={13} className="text-[#0E5E58]" /> Type
+                  </label>
                   <select
+                    id="filter-type"
+                    value={selectedType}
+                    onChange={(e) => setSelectedType(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-[#FAF9F6] px-2.5 py-2 text-xs font-semibold text-gray-800 focus:border-[#0E5E58] focus:bg-white focus:outline-none truncate"
+                  >
+                    <option value="all">All Types ({availableTypes.length})</option>
+                    {availableTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Price Filter Dropdown */}
+                <div className="flex flex-col gap-1 min-w-0">
+                  <label htmlFor="filter-price" className="text-[11px] font-bold text-gray-600 flex items-center gap-1">
+                    <Tag size={13} className="text-[#0E5E58]" /> Price
+                  </label>
+                  <select
+                    id="filter-price"
                     value={priceRange}
                     onChange={(e) => setPriceRange(e.target.value)}
-                    className="rounded-xl border border-gray-200 bg-[#FAF9F6] px-3 py-2 text-xs font-semibold text-gray-700 focus:border-[#0E5E58] focus:outline-none"
+                    className="w-full rounded-xl border border-gray-200 bg-[#FAF9F6] px-2.5 py-2 text-xs font-semibold text-gray-800 focus:border-[#0E5E58] focus:bg-white focus:outline-none truncate"
                   >
                     <option value="all">All Prices</option>
                     <option value="under-10">Under $10</option>
@@ -369,13 +413,16 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                   </select>
                 </div>
 
-                {/* Sort selector */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-gray-500 whitespace-nowrap">Sort:</span>
+                {/* Sort Selector Dropdown */}
+                <div className="flex flex-col gap-1 min-w-0">
+                  <label htmlFor="filter-sort" className="text-[11px] font-bold text-gray-600 flex items-center gap-1">
+                    <ArrowUpDown size={13} className="text-[#0E5E58]" /> Sort
+                  </label>
                   <select
+                    id="filter-sort"
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="rounded-xl border border-gray-200 bg-[#FAF9F6] px-3 py-2 text-xs font-semibold text-gray-700 focus:border-[#0E5E58] focus:outline-none"
+                    className="w-full rounded-xl border border-gray-200 bg-[#FAF9F6] px-2.5 py-2 text-xs font-semibold text-gray-800 focus:border-[#0E5E58] focus:bg-white focus:outline-none truncate"
                   >
                     <option value="featured">Featured First</option>
                     <option value="price-low">Price: Low to High</option>
@@ -386,74 +433,47 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                 </div>
               </div>
 
-              {/* Row 2: Specialized Shape & Type Filters */}
-              <div className="pt-2 border-t border-gray-100 flex flex-wrap items-center gap-4 text-xs">
-                {/* Shape Filter Pills */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-bold text-gray-500 flex items-center gap-1">
-                    <Box size={13} /> Shape:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedShape('all')}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                      selectedShape === 'all'
-                        ? 'bg-[#0E5E58] text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    All Shapes
-                  </button>
-                  {availableShapes.slice(0, 8).map((shape) => (
-                    <button
-                      key={shape}
-                      type="button"
-                      onClick={() => setSelectedShape(shape)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                        selectedShape === shape
-                          ? 'bg-[#0E5E58] text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {shape}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Type Filter Pills */}
-                {availableTypes.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-bold text-gray-500 flex items-center gap-1">
-                      <Layers size={13} /> Type:
+              {/* Active Filter Tags Indicator (if filters applied) with Quick Clear */}
+              {(selectedShape !== 'all' || selectedType !== 'all' || priceRange !== 'all' || suppliesSearch.trim() !== '') && (
+                <div className="pt-2 border-t border-gray-100 flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <span className="text-gray-500 font-medium">Active:</span>
+                  {selectedShape !== 'all' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F4F8F7] text-[#0E5E58] border border-[#0E5E58]/20 font-semibold">
+                      Shape: {selectedShape}
+                      <button onClick={() => setSelectedShape('all')} className="hover:text-red-600 ml-0.5" title="Remove shape filter">✕</button>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedType('all')}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                        selectedType === 'all'
-                          ? 'bg-[#0E5E58] text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      All Types
-                    </button>
-                    {availableTypes.slice(0, 6).map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => setSelectedType(type)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors truncate max-w-[150px] ${
-                          selectedType === type
-                            ? 'bg-[#0E5E58] text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {type}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                  )}
+                  {selectedType !== 'all' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F4F8F7] text-[#0E5E58] border border-[#0E5E58]/20 font-semibold">
+                      Type: {selectedType}
+                      <button onClick={() => setSelectedType('all')} className="hover:text-red-600 ml-0.5" title="Remove type filter">✕</button>
+                    </span>
+                  )}
+                  {priceRange !== 'all' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F4F8F7] text-[#0E5E58] border border-[#0E5E58]/20 font-semibold">
+                      Price: {priceRange}
+                      <button onClick={() => setPriceRange('all')} className="hover:text-red-600 ml-0.5" title="Remove price filter">✕</button>
+                    </span>
+                  )}
+                  {suppliesSearch.trim() && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F4F8F7] text-[#0E5E58] border border-[#0E5E58]/20 font-semibold">
+                      Search: "{suppliesSearch}"
+                      <button onClick={() => setSuppliesSearch('')} className="hover:text-red-600 ml-0.5" title="Remove search filter">✕</button>
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      setSelectedShape('all');
+                      setSelectedType('all');
+                      setPriceRange('all');
+                      setSuppliesSearch('');
+                    }}
+                    className="text-red-600 hover:underline font-semibold ml-auto text-[11px]"
+                  >
+                    Reset all
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Results Count & Reset Bar */}
@@ -525,8 +545,8 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
           </div>
         ) : (
           /* 100 Verified Dogs View */
-          <div>
-            <div className="bg-white rounded-2xl p-4 border border-[#E8E6DF] mb-6 shadow-2xs space-y-3">
+          <div className="w-full max-w-full min-w-0">
+            <div className="bg-white rounded-2xl p-4 border border-[#E8E6DF] mb-6 shadow-2xs space-y-3 w-full max-w-full">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                 <div>
                   <h2 className="font-serif-brand text-xl font-bold text-[#1E232A]">
@@ -540,7 +560,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                  className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
                     showOnlyFavorites
                       ? 'bg-rose-50 text-rose-600 border border-rose-200'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -552,8 +572,8 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
               </div>
 
               {/* Dog Filters */}
-              <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
-                <div className="relative flex-1 min-w-[200px]">
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 pt-2 border-t border-gray-100">
+                <div className="relative flex-1 min-w-0">
                   <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
                   <input
                     type="text"
@@ -564,48 +584,50 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                   />
                 </div>
 
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-gray-500">Size:</span>
-                  <select
-                    value={activeDogSize}
-                    onChange={(e) => setActiveDogSize(e.target.value)}
-                    className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold"
-                  >
-                    <option value="all">All Sizes (100 Dogs)</option>
-                    <option value="toy">Toy (&lt; 12 lbs)</option>
-                    <option value="small">Small (12-25 lbs)</option>
-                    <option value="medium">Medium (26-55 lbs)</option>
-                    <option value="large">Large (56-90 lbs)</option>
-                    <option value="giant">Giant (90+ lbs)</option>
-                  </select>
-                </div>
+                <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center sm:gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                    <span className="text-[11px] sm:text-xs font-bold text-gray-500">Size:</span>
+                    <select
+                      value={activeDogSize}
+                      onChange={(e) => setActiveDogSize(e.target.value)}
+                      className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs font-semibold"
+                    >
+                      <option value="all">All Sizes</option>
+                      <option value="toy">Toy (&lt; 12 lbs)</option>
+                      <option value="small">Small (12-25 lbs)</option>
+                      <option value="medium">Medium (26-55 lbs)</option>
+                      <option value="large">Large (56-90 lbs)</option>
+                      <option value="giant">Giant (90+ lbs)</option>
+                    </select>
+                  </div>
 
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-gray-500">Source:</span>
-                  <select
-                    value={selectedDogPartner}
-                    onChange={(e) => setSelectedDogPartner(e.target.value)}
-                    className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold"
-                  >
-                    <option value="all">All Partners</option>
-                    <option value="chewy">Chewy Partner Network</option>
-                    <option value="petco">Petco Love Partner</option>
-                  </select>
-                </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                    <span className="text-[11px] sm:text-xs font-bold text-gray-500">Source:</span>
+                    <select
+                      value={selectedDogPartner}
+                      onChange={(e) => setSelectedDogPartner(e.target.value)}
+                      className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs font-semibold"
+                    >
+                      <option value="all">All Partners</option>
+                      <option value="chewy">Chewy</option>
+                      <option value="petco">Petco</option>
+                    </select>
+                  </div>
 
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-gray-500">Sort:</span>
-                  <select
-                    value={dogSortBy}
-                    onChange={(e) => setDogSortBy(e.target.value)}
-                    className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold"
-                  >
-                    <option value="featured">Featured</option>
-                    <option value="price-low">Price: Low to High</option>
-                    <option value="price-high">Price: High to Low</option>
-                    <option value="weight-low">Weight: Lightest</option>
-                    <option value="weight-high">Weight: Heaviest</option>
-                  </select>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                    <span className="text-[11px] sm:text-xs font-bold text-gray-500">Sort:</span>
+                    <select
+                      value={dogSortBy}
+                      onChange={(e) => setDogSortBy(e.target.value)}
+                      className="rounded-lg border border-gray-200 px-2 py-1.5 text-xs font-semibold"
+                    >
+                      <option value="featured">Featured</option>
+                      <option value="price-low">Price: Low</option>
+                      <option value="price-high">Price: High</option>
+                      <option value="weight-low">Weight: Low</option>
+                      <option value="weight-high">Weight: High</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
