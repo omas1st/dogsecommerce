@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   MARKETPLACE_CATEGORIES,
-  ALL_MARKETPLACE_ITEMS,
   MarketplaceItem,
 } from '../data/marketplaceCatalog';
 import { MarketplaceItemCard } from '../components/MarketplaceItemCard';
@@ -50,94 +49,81 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
   const [sortBy, setSortBy] = useState<string>('featured');
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
 
-  // Live supplies with newly added / edited items persisted
-  const [allSupplies, setAllSupplies] = useState<MarketplaceItem[]>(() => {
-    try {
-      const custom = localStorage.getItem('hound_marketplace_custom_supplies');
-      const customList: any[] = custom ? JSON.parse(custom) : [];
-      if (customList.length === 0) return ALL_MARKETPLACE_ITEMS;
+  // Baseline supplies catalog: clean by default, loaded strictly from MongoDB
+  const [allSupplies, setAllSupplies] = useState<MarketplaceItem[]>([]);
 
-      const map = new Map<string, any>();
-      customList.forEach((it) => {
-        map.set(it.id, it);
-        if (it.slug) map.set(it.slug, it);
-      });
-      ALL_MARKETPLACE_ITEMS.forEach((it) => {
-        if (!map.has(it.id) && !map.has(it.slug)) {
-          map.set(it.id, it);
-        }
-      });
-      return Array.from(map.values());
-    } catch {
-      return ALL_MARKETPLACE_ITEMS;
-    }
-  });
-
-  // Sync with backend products to get latest additions and edits
+  // Load products directly from MongoDB database
   useEffect(() => {
     apiRequest<{ success: boolean; products: any[] }>('/admin/products')
       .then((res) => {
-        if (res && res.products && res.products.length > 0) {
-          const map = new Map<string, any>();
-          res.products.forEach((p) => {
-            map.set(p.id, p);
-            if (p.slug) map.set(p.slug, p);
+        if (res && res.products) {
+          const formatted: MarketplaceItem[] = res.products.map((p) => ({
+            ...p,
+            id: p.id || `prod-${Date.now()}`,
+            slug: p.slug || p.id || `prod-${Date.now()}`,
+            title: p.title || p.name || 'Marketplace Item',
+            price: Number(p.price) || 0,
+            compareAtPrice: p.compareAtPrice !== undefined ? Number(p.compareAtPrice) : undefined,
+            description: p.description || '',
+            category: p.category || 'dog-food',
+            categoryName: p.categoryName || p.category || 'Dog Supplies',
+            images: p.images && p.images.length > 0 ? p.images : (p.image ? [p.image] : []),
+            stock: p.stock !== undefined ? Number(p.stock) : 50,
+            rating: p.rating || 5.0,
+            reviewsCount: p.reviewsCount || 0,
+            shape: p.shape || '',
+            itemType: p.itemType || '',
+            dimensions: p.dimensions || '',
+            material: p.material || '',
+            tags: p.tags || [],
+            brand: p.brand || 'Hound & Harbor',
+            ownerType: p.ownerType || 'platform',
+            condition: p.condition || 'new',
+            sku: p.sku || `HH-${Date.now()}`,
+            variants: p.variants || [],
+            recentlyAdminEditedAt: p.recentlyAdminEditedAt,
+            isRecentlyUpdated: !!p.isRecentlyUpdated,
+            isNewlyAdded: !!p.isNewlyAdded,
+            featured: !!p.featured,
+          } as MarketplaceItem));
+
+          formatted.sort((a, b) => {
+            const timeA = a.recentlyAdminEditedAt || (a.isNewlyAdded ? 1 : 0) || 0;
+            const timeB = b.recentlyAdminEditedAt || (b.isRecentlyUpdated ? 1 : 0) || 0;
+            return timeB - timeA;
           });
-          ALL_MARKETPLACE_ITEMS.forEach((it) => {
-            if (!map.has(it.id) && !map.has(it.slug)) {
-              map.set(it.id, it);
-            }
-          });
-          setAllSupplies(Array.from(map.values()));
+
+          setAllSupplies(formatted);
         }
       })
       .catch(() => {});
   }, []);
 
-  // Dogs State (100 dogs)
-  const [dogs, setDogs] = useState<MarketplaceDog[]>(() => {
-    try {
-      const custom = localStorage.getItem('hound_marketplace_custom_dogs');
-      return custom ? JSON.parse(custom) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Dogs State (loaded directly from MongoDB database)
+  const [dogs, setDogs] = useState<MarketplaceDog[]>([]);
   const [isLoadingDogs, setIsLoadingDogs] = useState(false);
   const [activeDogSize, setActiveDogSize] = useState<string>('all');
   const [dogSearch, setDogSearch] = useState<string>('');
   const [selectedDogPartner, setSelectedDogPartner] = useState<string>('all');
   const [selectedDog, setSelectedDog] = useState<MarketplaceDog | null>(null);
   const [dogSortBy, setDogSortBy] = useState<string>('featured');
-  const [favorites, setFavorites] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('hound_dog_favorites');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [reservationNotice, setReservationNotice] = useState<string | null>(null);
 
-  // Load Dogs when needed
+  // Load Dogs directly from MongoDB
   useEffect(() => {
     setIsLoadingDogs(true);
     apiRequest<{ success: boolean; total: number; dogs: MarketplaceDog[] }>('/marketplace/dogs')
       .then((res) => {
         if (res && res.dogs) {
-          try {
-            const custom = localStorage.getItem('hound_marketplace_custom_dogs');
-            const customList: MarketplaceDog[] = custom ? JSON.parse(custom) : [];
-            const map = new Map<string, MarketplaceDog>();
-            customList.forEach((d) => map.set(d.id, d));
-            res.dogs.forEach((d) => {
-              if (!map.has(d.id)) map.set(d.id, d);
-            });
-            setDogs(Array.from(map.values()));
-          } catch {
-            setDogs(res.dogs);
-          }
+          const sortedDogs = [...res.dogs].sort((a: any, b: any) => {
+            const timeA = a.recentlyAdminEditedAt || (a.isNewlyAdded ? 1 : 0) || 0;
+            const timeB = b.recentlyAdminEditedAt || (b.isRecentlyUpdated ? 1 : 0) || 0;
+            if (timeA !== timeB) return timeB - timeA;
+            return 0;
+          });
+          setDogs(sortedDogs);
         }
       })
       .catch(console.error)
@@ -145,15 +131,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
   }, []);
 
   const toggleFavorite = (dogId: string) => {
-    setFavorites((prev) => {
-      const updated = prev.includes(dogId) ? prev.filter((id) => id !== dogId) : [...prev, dogId];
-      try {
-        localStorage.setItem('hound_dog_favorites', JSON.stringify(updated));
-      } catch (e) {
-        console.error(e);
-      }
-      return updated;
-    });
+    setFavorites((prev) => (prev.includes(dogId) ? prev.filter((id) => id !== dogId) : [...prev, dogId]));
   };
 
   // Extract available shapes and types dynamically based on selected category
@@ -341,7 +319,9 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                   Select Dog Department ({MARKETPLACE_CATEGORIES.length} Categories):
                 </span>
                 <span className="text-xs font-medium text-[#0E5E58]">
-                  {selectedCategory === 'all' ? 'Showing All 624 Items' : `${activeCategoryDef?.name} (52 Items)`}
+                  {selectedCategory === 'all'
+                    ? `${filteredSupplies.length} Items Available`
+                    : `${activeCategoryDef?.name} (${filteredSupplies.length} Items)`}
                 </span>
               </div>
 
@@ -361,31 +341,34 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                 >
                   <span>🐾 All Departments</span>
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${selectedCategory === 'all' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                    624
+                    {allSupplies.length}
                   </span>
                 </button>
 
-                {MARKETPLACE_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCategory(cat.id);
-                      setSelectedShape('all');
-                      setSelectedType('all');
-                    }}
-                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
-                      selectedCategory === cat.id
-                        ? 'bg-[#0E5E58] text-white border-[#0E5E58] shadow-sm'
-                        : 'bg-white text-gray-700 border-[#E8E6DF] hover:border-[#0E5E58]/40 hover:bg-[#F4F8F7]'
-                    }`}
-                  >
-                    <span>{cat.name}</span>
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${selectedCategory === cat.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
-                      {cat.count}
-                    </span>
-                  </button>
-                ))}
+                {MARKETPLACE_CATEGORIES.map((cat) => {
+                  const catCount = allSupplies.filter((it) => it.category === cat.id).length;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory(cat.id);
+                        setSelectedShape('all');
+                        setSelectedType('all');
+                      }}
+                      className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
+                        selectedCategory === cat.id
+                          ? 'bg-[#0E5E58] text-white border-[#0E5E58] shadow-sm'
+                          : 'bg-white text-gray-700 border-[#E8E6DF] hover:border-[#0E5E58]/40 hover:bg-[#F4F8F7]'
+                      }`}
+                    >
+                      <span>{cat.name}</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${selectedCategory === cat.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                        {catCount}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -402,7 +385,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F4F8F7] text-[#0E5E58] text-xs font-bold border border-[#0E5E58]/20">
-                    <CheckCircle2 size={14} /> 52 Verified Products
+                    <CheckCircle2 size={14} /> {allSupplies.filter((it) => it.category === selectedCategory).length} Products
                   </span>
                 </div>
               </div>
@@ -588,25 +571,29 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
             {/* Product Cards Grid */}
             {filteredSupplies.length === 0 ? (
               <div className="bg-white rounded-2xl p-12 text-center border border-[#E8E6DF]">
-                <div className="text-3xl mb-3">🔍</div>
+                <div className="text-3xl mb-3">📦</div>
                 <h3 className="font-serif-brand text-lg font-bold text-gray-900 mb-1">
-                  No matching items found
+                  {allSupplies.length === 0 ? 'No Products Currently Listed' : 'No matching items found'}
                 </h3>
                 <p className="text-xs text-gray-500 max-w-sm mx-auto mb-4">
-                  Try adjusting your shape or type filter, or reset your search query.
+                  {allSupplies.length === 0
+                    ? 'Our canine collection is currently being updated. Please check back shortly for new gear and nutrition!'
+                    : 'Try adjusting your shape or type filter, or reset your search query.'}
                 </p>
-                <button
-                  onClick={() => {
-                    setSelectedShape('all');
-                    setSelectedType('all');
-                    setPriceRange('all');
-                    setSuppliesSearch('');
-                    setSelectedCategory('all');
-                  }}
-                  className="rounded-xl bg-[#0E5E58] px-4 py-2 text-xs font-bold text-white hover:bg-[#0B4A45]"
-                >
-                  Show All 624 Items
-                </button>
+                {allSupplies.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setSelectedShape('all');
+                      setSelectedType('all');
+                      setPriceRange('all');
+                      setSuppliesSearch('');
+                      setSelectedCategory('all');
+                    }}
+                    className="rounded-xl bg-[#0E5E58] px-4 py-2 text-xs font-bold text-white hover:bg-[#0B4A45] cursor-pointer"
+                  >
+                    Show All Items
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -631,7 +618,7 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
                     Verified Canines for Adoption &amp; Reservation
                   </h2>
                   <p className="text-xs text-gray-500">
-                    Over 100 health-screened dogs of all sizes from Chewy, Petco &amp; Reserve partners.
+                    Health-screened companion canines with direct reservation, partner provenance, and care bundles.
                   </p>
                 </div>
 
@@ -713,7 +700,32 @@ export const MarketplacePage: React.FC<MarketplacePageProps> = ({
             {/* Dog Cards Grid */}
             {isLoadingDogs ? (
               <div className="py-20 text-center text-xs font-bold text-gray-500">
-                Loading 100 marketplace dogs...
+                Loading adoption dogs...
+              </div>
+            ) : filteredDogs.length === 0 ? (
+              <div className="bg-white rounded-2xl p-12 text-center border border-[#E8E6DF]">
+                <div className="text-3xl mb-3">🐕</div>
+                <h3 className="font-serif-brand text-lg font-bold text-gray-900 mb-1">
+                  {dogs.length === 0 ? 'No Dogs Listed for Adoption' : 'No matching dogs found'}
+                </h3>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto mb-4">
+                  {dogs.length === 0
+                    ? 'There are currently no dogs listed for adoption. Please check back soon!'
+                    : 'Try adjusting your size or partner filter, or search term.'}
+                </p>
+                {dogs.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setActiveDogSize('all');
+                      setSelectedDogPartner('all');
+                      setDogSearch('');
+                      setShowOnlyFavorites(false);
+                    }}
+                    className="rounded-xl bg-[#0E5E58] px-4 py-2 text-xs font-bold text-white hover:bg-[#0B4A45] cursor-pointer"
+                  >
+                    Show All Dogs
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

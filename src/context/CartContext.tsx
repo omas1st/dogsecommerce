@@ -50,33 +50,13 @@ const computeSummary = (cartItems: CartItem[], existingSummary?: CartSummary | n
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const [items, setItems] = useState<CartItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('hound_cart_items');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [summary, setSummary] = useState<CartSummary | null>(() => {
-    try {
-      const saved = localStorage.getItem('hound_cart_items');
-      const parsed = saved ? JSON.parse(saved) : [];
-      return parsed.length > 0 ? computeSummary(parsed) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [summary, setSummary] = useState<CartSummary | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
 
-  // Sync items to localStorage and compute fallback summary
+  // Compute live summary when items change
   useEffect(() => {
-    try {
-      localStorage.setItem('hound_cart_items', JSON.stringify(items));
-    } catch (e) {
-      console.error(e);
-    }
     if (items.length > 0) {
       setSummary((prev) => computeSummary(items, prev));
     } else {

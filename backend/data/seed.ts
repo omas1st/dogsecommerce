@@ -208,45 +208,8 @@ export const seedDatabase = async () => {
     }
   }
 
-  // 5. Products Catalog (Expanded multi-category catalog)
-  console.log(`[Seed] Checking and populating expanded product catalog...`);
-  for (const productData of defaultProductsList) {
-    const existing = await ProductModel.findOne({ slug: productData.slug });
-    if (!existing) {
-      const isSellerProduct = productData.brand?.includes('Timber & Trail');
-      const prod = await ProductModel.create({
-        ...productData,
-        sellerId: isSellerProduct ? seller.id : undefined,
-        sellerName: isSellerProduct ? seller.storeName : undefined,
-      } as any);
-
-      // Seed Reviews for key products
-      if (prod.rating && prod.rating >= 4.8) {
-        await ReviewModel.create({
-          productId: prod.id,
-          userId: customer.id,
-          userName: 'Sarah J.',
-          petContext: {
-            petName: 'Max',
-            breed: 'Golden Retriever',
-            age: '3 yrs',
-          },
-          rating: 5,
-          title: `Remarkable quality for ${prod.title.split(' ')[0]}!`,
-          content: `Our veterinary nutrition team and Max both love this. You can immediately feel the craftsmanship and purity of ingredients compared to grocery store brands. Essential part of our monthly routine!`,
-          isVerifiedPurchase: true,
-          status: 'approved',
-          createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-        });
-      }
-    } else {
-      await ProductModel.findByIdAndUpdate(existing.id, {
-        price: productData.price,
-        compareAtPrice: productData.compareAtPrice,
-        variants: productData.variants,
-      });
-    }
-  }
+  // 5. Products Catalog (Clean baseline: user/admin adds items)
+  console.log(`[Seed] Products Catalog clean baseline active (user/admin adds items directly to MongoDB).`);
 
   // 6. Seed Promotional Coupons
   let coupon = await CouponModel.findOne({ code: 'WELCOME15' });
@@ -436,30 +399,8 @@ export const seedDatabase = async () => {
     });
   }
 
-  // 11. Seed Marketplace 100 Dogs across all sizes with Chewy and Petco partner ties
-  const existingDogs = await MarketplaceDogModel.find();
-  if (existingDogs.length < 100) {
-    for (const dog of defaultMarketplaceDogs) {
-      const exists = await MarketplaceDogModel.findById(dog.id);
-      if (!exists) {
-        await MarketplaceDogModel.create(dog);
-      }
-    }
-    console.log(`[Seed] 100 Marketplace Dogs populated successfully across all sizes (toy, small, medium, large, giant).`);
-  }
-
-  // 12. Seed Marketplace 624 items into ProductModel
-  const existingProducts = await ProductModel.find();
-  if (existingProducts.length < 600) {
-    console.log(`[Seed] Populating 624 marketplace items into ProductModel...`);
-    for (const mktItem of backendMarketplaceCatalog) {
-      const exists = await ProductModel.findById(mktItem.id);
-      if (!exists) {
-        await ProductModel.create(mktItem as any);
-      }
-    }
-    console.log(`[Seed] 624 Marketplace Items populated into ProductModel.`);
-  }
+  // 11 & 12: Dogs and Marketplace Catalog: intentionally clean so user/admin is the one to add items directly
+  console.log(`[Seed] Marketplace Catalog & Adoption dogs clean baseline initialized.`);
 
   db.flush();
   console.log('[Seed] Seeding completed successfully!');

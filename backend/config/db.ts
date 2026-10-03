@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { MongoClient, Db, Collection as MongoCollection } from 'mongodb';
+import { MongoClient, Db, Collection as MongoCollection, ObjectId } from 'mongodb';
 
 // MongoDB Database Manager for Hound & Harbor
 // Directly connects to MongoDB Atlas using MONGO_URI / MONGODB_URI.
@@ -189,8 +189,18 @@ class Collection<T extends { id?: string; _id?: string; createdAt?: string; upda
     return results.length > 0 ? { ...results[0] } : null;
   }
 
+  private buildIdQuery(id: string): any {
+    const conditions: any[] = [{ id }, { _id: id }];
+    if (typeof id === 'string' && ObjectId.isValid(id) && id.length === 24) {
+      try {
+        conditions.push({ _id: new ObjectId(id) });
+      } catch (_) {}
+    }
+    return { $or: conditions };
+  }
+
   public async findById(id: string): Promise<T | null> {
-    return this.findOne({ $or: [{ id }, { _id: id }] });
+    return this.findOne(this.buildIdQuery(id));
   }
 
   public async create(doc: Partial<T>): Promise<T> {
@@ -226,13 +236,14 @@ class Collection<T extends { id?: string; _id?: string; createdAt?: string; upda
     const col = this.getMongoCol();
     if (col) {
       try {
+        const query = this.buildIdQuery(id);
         const res = await col.findOneAndUpdate(
-          { $or: [{ id }, { _id: id }] } as any,
+          query as any,
           { $set: { ...safeUpdate, updatedAt: now } },
           { returnDocument: 'after' }
         );
-        const doc = (res as any)?.value || res;
-        return doc ? this.formatDoc(doc) : null;
+        const doc = (res as any)?.value !== undefined ? (res as any).value : res;
+        if (doc) return this.formatDoc(doc);
       } catch (err: any) {
         console.error(`[MongoDB] findByIdAndUpdate error in collection ${this.name}:`, err.message);
       }
@@ -298,9 +309,10 @@ class Collection<T extends { id?: string; _id?: string; createdAt?: string; upda
     const col = this.getMongoCol();
     if (col) {
       try {
-        const res = await col.findOneAndDelete({ $or: [{ id }, { _id: id }] } as any);
-        const doc = (res as any)?.value || res;
-        return doc ? this.formatDoc(doc) : null;
+        const query = this.buildIdQuery(id);
+        const res = await col.findOneAndDelete(query as any);
+        const doc = (res as any)?.value !== undefined ? (res as any).value : res;
+        if (doc) return this.formatDoc(doc);
       } catch (err: any) {
         console.error(`[MongoDB] findByIdAndDelete error in collection ${this.name}:`, err.message);
       }
@@ -341,7 +353,24 @@ class Collection<T extends { id?: string; _id?: string; createdAt?: string; upda
     const sanitized: any = {};
     for (const [key, value] of Object.entries(filter)) {
       if (key === 'id' && typeof value === 'string') {
-        sanitized.$or = [{ id: value }, { _id: value }];
+        sanitized.$or = this.buildIdQuery(value).$or;
+      } else if (key === '_id' && typeof value === 'string' && ObjectId.isValid(value) && value.length === 24) {
+        try {
+          sanitized.$or = [{ _id: value }, { _id: new ObjectId(value) }];
+        } catch (_) {
+          sanitized._id = value;
+        }
+      } else if (key === '$or' && Array.isArray(value)) {
+        const expandedOr: any[] = [];
+        for (const cond of value) {
+          expandedOr.push(cond);
+          if (cond._id && typeof cond._id === 'string' && ObjectId.isValid(cond._id) && cond._id.length === 24) {
+            try {
+              expandedOr.push({ _id: new ObjectId(cond._id) });
+            } catch (_) {}
+          }
+        }
+        sanitized.$or = expandedOr;
       } else {
         sanitized[key] = value;
       }

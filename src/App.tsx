@@ -139,7 +139,7 @@ function AppContent() {
                 onClick={() => handleNavigate('marketplace')}
                 className="text-gray-600 hover:text-[#0E5E58] font-semibold transition-colors"
               >
-                Marketplace (624+ Items)
+                Marketplace
               </button>
             </div>
           </div>
@@ -362,8 +362,8 @@ function AppContent() {
         onProceedToCheckout={() => handleNavigate('checkout')}
       />
 
-      {/* Global Footer */}
-      <Footer onNavigate={handleNavigate} />
+      {/* Footer: ONLY shown on Homepage */}
+      {currentRoute === 'home' && <Footer onNavigate={handleNavigate} />}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../services/api';
+import { AdminImageUploader } from '../components/AdminImageUploader';
 import {
-  ALL_MARKETPLACE_ITEMS,
   MARKETPLACE_CATEGORIES,
 } from '../data/marketplaceCatalog';
 import {
@@ -147,9 +147,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
   // Data states
   const [orders, setOrders] = useState<OrderRecord[]>([]);
-  const [supplies, setSupplies] = useState<SupplyItem[]>(() => {
-    return ALL_MARKETPLACE_ITEMS as any[];
-  });
+  const [supplies, setSupplies] = useState<SupplyItem[]>([]);
   const [adoptionDogs, setAdoptionDogs] = useState<AdoptionDogItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -180,23 +178,43 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
   const [deletingItem, setDeletingItem] = useState<UnifiedItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form fields
-  const [formData, setFormData] = useState({
+  // Form fields containing all information displayed on the preview page
+  const DEFAULT_FORM_DATA = {
     name: '',
     price: '',
+    compareAtPrice: '',
     image: '',
     description: '',
     category: 'dog-food',
     brand: 'Hound & Harbor',
     stock: '50',
+    sku: '',
+    shape: 'Ergonomic Bolster',
+    itemType: 'Canine Daily Essential',
+    dimensions: 'Medium (Standard)',
+    material: 'Canine-Grade Durable Material',
+    tags: '',
     featured: true,
-    // Dog specific
+
+    // Dog specific fields
     breed: 'Golden Retriever',
     size: 'medium',
+    weightLbs: '30',
     ageYears: '1',
+    ageMonths: '0',
     gender: 'female',
     location: 'Austin, TX',
-  });
+    partnerSource: 'Chewy Partner Network',
+    energyLevel: 'playful',
+    isNeuteredOrSpayed: true,
+    isVaccinated: true,
+    isMicrochipped: true,
+    chewyPetcoBundle: 'Chewy Welcome Kit + 30-Day Food Supply',
+    temperament: 'Friendly, Loving, Trainable',
+    healthGuarantee: '1-Year Comprehensive Health Shield',
+  };
+
+  const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
 
   // Check if admin
   const isAdmin = !!user && (user.role === 'admin' || user.role === 'super_admin');
@@ -217,25 +235,32 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
       setOrders(ordersRes.orders || []);
 
-      // Merge ALL_MARKETPLACE_ITEMS with server products so that ALL 624+ marketplace items are present
+      // Server products from MongoDB
       const supplyMap = new Map<string, SupplyItem>();
 
-      // 1. Base: all marketplace catalog items
-      (ALL_MARKETPLACE_ITEMS as any[]).forEach((it) => {
-        supplyMap.set(it.id, it);
-        if (it.slug) supplyMap.set(it.slug, it);
-      });
-
-      // 2. Server products (overwrites with any live edits from DB)
       (productsRes.products || []).forEach((p) => {
         supplyMap.set(p.id, p);
         if (p.slug) supplyMap.set(p.slug, p);
       });
 
       const fullSuppliesList = Array.from(new Set(supplyMap.values()));
+      // Always list newly added or edited items FIRST on the Admin Panel
+      fullSuppliesList.sort((a: any, b: any) => {
+        const timeA = a.recentlyAdminEditedAt || (a.isNewlyAdded ? 1 : 0) || 0;
+        const timeB = b.recentlyAdminEditedAt || (b.isRecentlyUpdated ? 1 : 0) || 0;
+        if (timeA !== timeB) return timeB - timeA;
+        return 0;
+      });
       setSupplies(fullSuppliesList);
 
-      setAdoptionDogs(dogsRes.dogs || []);
+      const dogsList = dogsRes.dogs || [];
+      dogsList.sort((a: any, b: any) => {
+        const timeA = a.recentlyAdminEditedAt || (a.isNewlyAdded ? 1 : 0) || 0;
+        const timeB = b.recentlyAdminEditedAt || (b.isRecentlyUpdated ? 1 : 0) || 0;
+        if (timeA !== timeB) return timeB - timeA;
+        return 0;
+      });
+      setAdoptionDogs(dogsList);
     } catch (err: any) {
       console.error('Admin data load error:', err);
       showToast('error', 'Could not refresh some dashboard records.');
@@ -308,6 +333,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       });
     });
 
+    // Newly added and edited items always appear first in the admin unified list
+    list.sort((a, b) => {
+      const timeA = (a.raw as any)?.recentlyAdminEditedAt || ((a.raw as any)?.isNewlyAdded ? 1 : 0) || 0;
+      const timeB = (b.raw as any)?.recentlyAdminEditedAt || ((b.raw as any)?.isRecentlyUpdated ? 1 : 0) || 0;
+      if (timeA !== timeB) return timeB - timeA;
+      return 0;
+    });
+
     return list;
   }, [supplies, adoptionDogs]);
 
@@ -359,6 +392,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     // Sorting: Homepage arrangement vs By Names vs By Prices
     if (itemSortFilter === 'homepage') {
       result.sort((a, b) => {
+        const timeA = (a.raw as any)?.recentlyAdminEditedAt || ((a.raw as any)?.isNewlyAdded ? 1 : 0) || 0;
+        const timeB = (b.raw as any)?.recentlyAdminEditedAt || ((b.raw as any)?.isRecentlyUpdated ? 1 : 0) || 0;
+        if (timeA !== timeB) return timeB - timeA;
+
         const aCat = a.itemKind === 'supply' ? (a.raw as SupplyItem).category : '';
         const bCat = b.itemKind === 'supply' ? (b.raw as SupplyItem).category : '';
         const aOrder = HOMEPAGE_CATEGORIES_ORDER[aCat] || 99;
@@ -461,13 +498,22 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
       if (addKind === 'supply') {
         const payload = {
           title: formData.name.trim(),
+          name: formData.name.trim(),
           price: Number(formData.price),
+          compareAtPrice: formData.compareAtPrice ? Number(formData.compareAtPrice) : Number((Number(formData.price) * 1.6).toFixed(2)),
           images: [formData.image.trim() || 'https://images.unsplash.com/photo-1589924691995-400dc9ecc119?auto=format&fit=crop&w=600&q=80'],
+          image: formData.image.trim(),
           description: formData.description.trim(),
           category: formData.category,
           brand: formData.brand.trim() || 'Hound & Harbor',
           stock: Number(formData.stock) || 50,
-          featured: formData.featured,
+          sku: formData.sku.trim() || `HH-${formData.category.slice(0, 4).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`,
+          shape: formData.shape.trim() || 'Ergonomic Bolster',
+          itemType: formData.itemType.trim() || 'Canine Daily Essential',
+          dimensions: formData.dimensions.trim() || 'Medium (Standard)',
+          material: formData.material.trim() || 'Canine-Grade Durable Material',
+          tags: formData.tags ? formData.tags.split(',').map((t) => t.trim()) : [formData.category],
+          featured: true,
           recentlyAdminEditedAt: now,
           isRecentlyUpdated: true,
           isNewlyAdded: true,
@@ -484,30 +530,30 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         };
 
         setSupplies((prev) => [newSupply, ...prev]);
-
-        // Save to localStorage for immediate marketplace storefront presence
-        try {
-          const raw = localStorage.getItem('hound_marketplace_custom_supplies');
-          const list: SupplyItem[] = raw ? JSON.parse(raw) : [];
-          list.unshift(newSupply);
-          localStorage.setItem('hound_marketplace_custom_supplies', JSON.stringify(list));
-        } catch (e) {
-          console.error(e);
-        }
-
-        showToast('success', `Created dog supply: ${newSupply.title} (Placed at top of Marketplace)`);
+        showToast('success', `Created dog supply: ${newSupply.title} (Saved directly to MongoDB Database)`);
       } else {
         const payload = {
           name: formData.name.trim(),
           price: Number(formData.price),
+          comparePrice: formData.compareAtPrice ? Number(formData.compareAtPrice) : Number((Number(formData.price) * 1.3).toFixed(2)),
           photoUrl: formData.image.trim() || 'https://images.dog.ceo/breeds/retriever-golden/n02099601_100.jpg',
+          image: formData.image.trim(),
           description: formData.description.trim(),
           breed: formData.breed.trim() || 'Mixed Breed',
           size: formData.size,
+          weightLbs: Number(formData.weightLbs) || 30,
           ageYears: Number(formData.ageYears) || 1,
+          ageMonths: Number(formData.ageMonths) || 0,
           gender: formData.gender,
           location: formData.location.trim() || 'Austin, TX',
-          partnerSource: 'Hound & Harbor Adoption Care',
+          partnerSource: formData.partnerSource.trim() || 'Chewy Partner Network',
+          energyLevel: formData.energyLevel || 'playful',
+          isNeuteredOrSpayed: formData.isNeuteredOrSpayed,
+          isVaccinated: formData.isVaccinated,
+          isMicrochipped: formData.isMicrochipped,
+          chewyPetcoBundle: formData.chewyPetcoBundle.trim() || 'Chewy Welcome Kit + 30-Day Food Supply',
+          temperament: formData.temperament ? formData.temperament.split(',').map((t) => t.trim()) : ['Friendly', 'Loving', 'Trainable'],
+          healthGuarantee: formData.healthGuarantee.trim() || '1-Year Comprehensive Health Shield',
           recentlyAdminEditedAt: now,
           isRecentlyUpdated: true,
           isNewlyAdded: true,
@@ -524,35 +570,41 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
         };
 
         setAdoptionDogs((prev) => [newDog, ...prev]);
-
-        // Save to localStorage for immediate marketplace storefront presence
-        try {
-          const raw = localStorage.getItem('hound_marketplace_custom_dogs');
-          const list: AdoptionDogItem[] = raw ? JSON.parse(raw) : [];
-          list.unshift(newDog);
-          localStorage.setItem('hound_marketplace_custom_dogs', JSON.stringify(list));
-        } catch (e) {
-          console.error(e);
-        }
-
-        showToast('success', `Added dog for adoption: ${newDog.name} (Placed at top of Marketplace)`);
+        showToast('success', `Added dog for adoption: ${newDog.name} (Saved directly to MongoDB Database)`);
       }
 
       setIsAddModalOpen(false);
       setFormData({
         name: '',
         price: '',
+        compareAtPrice: '',
         image: '',
         description: '',
         category: 'dog-food',
         brand: 'Hound & Harbor',
         stock: '50',
+        sku: '',
+        shape: 'Ergonomic Bolster',
+        itemType: 'Canine Daily Essential',
+        dimensions: 'Medium (Standard)',
+        material: 'Canine-Grade Durable Material',
+        tags: '',
         featured: true,
         breed: 'Golden Retriever',
         size: 'medium',
+        weightLbs: '30',
         ageYears: '1',
+        ageMonths: '0',
         gender: 'female',
         location: 'Austin, TX',
+        partnerSource: 'Chewy Partner Network',
+        energyLevel: 'playful',
+        isNeuteredOrSpayed: true,
+        isVaccinated: true,
+        isMicrochipped: true,
+        chewyPetcoBundle: 'Chewy Welcome Kit + 30-Day Food Supply',
+        temperament: 'Friendly, Loving, Trainable',
+        healthGuarantee: '1-Year Comprehensive Health Shield',
       });
     } catch (err: any) {
       showToast('error', err.message || 'Failed to add item.');
@@ -561,27 +613,47 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
     }
   };
 
-  // Open Edit Modal
+  // Open Edit Modal - Populates ALL fields shown on the preview page
   const openEditModal = (item: UnifiedItem) => {
     setEditingItem(item);
+    const raw: any = item.raw || {};
     setFormData({
-      name: item.name,
-      price: String(item.price),
-      image: item.image,
-      description: item.description,
-      category: (item.raw as SupplyItem).category || 'dog-food',
-      brand: (item.raw as SupplyItem).brand || 'Hound & Harbor',
-      stock: String((item.raw as SupplyItem).stock ?? 50),
+      name: item.name || '',
+      price: String(item.price ?? ''),
+      compareAtPrice: String(raw.compareAtPrice || raw.comparePrice || ''),
+      image: item.image || '',
+      description: item.description || '',
+      category: raw.category || 'dog-food',
+      brand: raw.brand || 'Hound & Harbor',
+      stock: String(raw.stock ?? 50),
+      sku: raw.sku || '',
+      shape: raw.shape || 'Ergonomic Bolster',
+      itemType: raw.itemType || 'Canine Daily Essential',
+      dimensions: raw.dimensions || '',
+      material: raw.material || '',
+      tags: Array.isArray(raw.tags) ? raw.tags.join(', ') : (raw.tags || ''),
       featured: !!item.featured,
-      breed: (item.raw as AdoptionDogItem).breed || 'Golden Retriever',
-      size: (item.raw as AdoptionDogItem).size || 'medium',
-      ageYears: String((item.raw as AdoptionDogItem).ageYears ?? 1),
-      gender: (item.raw as AdoptionDogItem).gender || 'female',
-      location: (item.raw as AdoptionDogItem).location || 'Austin, TX',
+
+      // Dog specific
+      breed: raw.breed || 'Golden Retriever',
+      size: raw.size || 'medium',
+      weightLbs: String(raw.weightLbs ?? 30),
+      ageYears: String(raw.ageYears ?? 1),
+      ageMonths: String(raw.ageMonths ?? 0),
+      gender: raw.gender || 'female',
+      location: raw.location || 'Austin, TX',
+      partnerSource: raw.partnerSource || 'Chewy Partner Network',
+      energyLevel: raw.energyLevel || 'playful',
+      isNeuteredOrSpayed: raw.isNeuteredOrSpayed !== undefined ? !!raw.isNeuteredOrSpayed : true,
+      isVaccinated: raw.isVaccinated !== undefined ? !!raw.isVaccinated : true,
+      isMicrochipped: raw.isMicrochipped !== undefined ? !!raw.isMicrochipped : true,
+      chewyPetcoBundle: raw.chewyPetcoBundle || 'Chewy Welcome Kit + 30-Day Food Supply',
+      temperament: Array.isArray(raw.temperament) ? raw.temperament.join(', ') : (raw.temperament || 'Friendly, Loving, Trainable'),
+      healthGuarantee: raw.healthGuarantee || '1-Year Comprehensive Health Shield',
     });
   };
 
-  // Handle Edit Item Submit (specifically allows changing image, name, price, description)
+  // Handle Edit Item Submit - Updates ALL preview fields and places item FIRST
   const handleEditItemSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
@@ -598,13 +670,20 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
           title: formData.name.trim(),
           name: formData.name.trim(),
           price: Number(formData.price),
+          compareAtPrice: formData.compareAtPrice ? Number(formData.compareAtPrice) : Number((Number(formData.price) * 1.6).toFixed(2)),
           image: formData.image.trim(),
           images: [formData.image.trim()],
           description: formData.description.trim(),
           category: formData.category,
           stock: Number(formData.stock) || 50,
-          brand: formData.brand,
-          featured: formData.featured,
+          brand: formData.brand.trim() || 'Hound & Harbor',
+          sku: formData.sku.trim() || ((editingItem.raw as SupplyItem)?.sku || ''),
+          shape: formData.shape.trim(),
+          itemType: formData.itemType.trim(),
+          dimensions: formData.dimensions.trim(),
+          material: formData.material.trim(),
+          tags: formData.tags ? formData.tags.split(',').map((t) => t.trim()) : undefined,
+          featured: true,
           recentlyAdminEditedAt: now,
           isRecentlyUpdated: true,
         };
@@ -619,16 +698,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
         const updatedSupply: SupplyItem = res.product || {
           ...editingItem.raw,
-          title: formData.name.trim(),
-          price: Number(formData.price),
-          images: [formData.image.trim()],
-          description: formData.description.trim(),
-          category: formData.category,
-          stock: Number(formData.stock) || 50,
-          brand: formData.brand,
-          featured: formData.featured,
-          recentlyAdminEditedAt: now,
-          isRecentlyUpdated: true,
+          ...payload,
+          id: editingItem.id,
         };
 
         setSupplies((prev) => {
@@ -636,32 +707,31 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
           return [updatedSupply, ...list];
         });
 
-        // Save to localStorage for immediate marketplace storefront presence
-        try {
-          const raw = localStorage.getItem('hound_marketplace_custom_supplies');
-          const list: SupplyItem[] = raw ? JSON.parse(raw) : [];
-          const idx = list.findIndex((s) => s.id === updatedSupply.id || (s.slug && s.slug === updatedSupply.slug));
-          if (idx !== -1) list.splice(idx, 1);
-          list.unshift(updatedSupply);
-          localStorage.setItem('hound_marketplace_custom_supplies', JSON.stringify(list));
-        } catch (e) {
-          console.error(e);
-        }
-
-        showToast('success', `Updated marketplace item: ${formData.name} (Placed at top of Marketplace)`);
+        showToast('success', `Updated marketplace item: ${formData.name} (Placed FIRST on Homepage & Admin Panel)`);
       } else {
-        // Dog for adoption update: image, name, price, description
+        // Dog for adoption update: all preview properties
         const payload = {
           name: formData.name.trim(),
           price: Number(formData.price),
+          comparePrice: formData.compareAtPrice ? Number(formData.compareAtPrice) : undefined,
           photoUrl: formData.image.trim(),
           image: formData.image.trim(),
           description: formData.description.trim(),
-          breed: formData.breed,
+          breed: formData.breed.trim(),
           size: formData.size,
+          weightLbs: Number(formData.weightLbs) || 30,
           ageYears: Number(formData.ageYears) || 1,
+          ageMonths: Number(formData.ageMonths) || 0,
           gender: formData.gender,
-          location: formData.location,
+          location: formData.location.trim(),
+          partnerSource: formData.partnerSource.trim(),
+          energyLevel: formData.energyLevel,
+          isNeuteredOrSpayed: formData.isNeuteredOrSpayed,
+          isVaccinated: formData.isVaccinated,
+          isMicrochipped: formData.isMicrochipped,
+          chewyPetcoBundle: formData.chewyPetcoBundle.trim(),
+          temperament: formData.temperament ? formData.temperament.split(',').map((t) => t.trim()) : undefined,
+          healthGuarantee: formData.healthGuarantee.trim(),
           recentlyAdminEditedAt: now,
           isRecentlyUpdated: true,
         };
@@ -676,17 +746,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
         const updatedDog: AdoptionDogItem = res.dog || {
           ...editingItem.raw,
-          name: formData.name.trim(),
-          price: Number(formData.price),
-          photoUrl: formData.image.trim(),
-          description: formData.description.trim(),
-          breed: formData.breed,
-          size: formData.size,
-          ageYears: Number(formData.ageYears) || 1,
-          gender: formData.gender,
-          location: formData.location,
-          recentlyAdminEditedAt: now,
-          isRecentlyUpdated: true,
+          ...payload,
+          id: editingItem.id,
         };
 
         setAdoptionDogs((prev) => {
@@ -694,19 +755,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
           return [updatedDog, ...list];
         });
 
-        // Save to localStorage for immediate marketplace storefront presence
-        try {
-          const raw = localStorage.getItem('hound_marketplace_custom_dogs');
-          const list: AdoptionDogItem[] = raw ? JSON.parse(raw) : [];
-          const idx = list.findIndex((d) => d.id === updatedDog.id);
-          if (idx !== -1) list.splice(idx, 1);
-          list.unshift(updatedDog);
-          localStorage.setItem('hound_marketplace_custom_dogs', JSON.stringify(list));
-        } catch (e) {
-          console.error(e);
-        }
-
-        showToast('success', `Updated dog for adoption: ${formData.name} (Placed at top of Marketplace)`);
+        showToast('success', `Updated dog for adoption: ${formData.name} (Placed FIRST on Homepage & Admin Panel)`);
       }
 
       setEditingItem(null);
@@ -1175,7 +1224,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Every item in the marketplace (all 624+ supplies across 12 categories, signature products, and 100 dogs for adoption) is available below for editing or deletion.
+                  Manage inventory stored directly in the MongoDB database ({supplies.length} supplies, {adoptionDogs.length} dogs). All items added here sync live to the storefront.
                 </p>
               </div>
 
@@ -1183,21 +1232,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 <button
                   id="add-new-item-btn"
                   onClick={() => {
-                    setFormData({
-                      name: '',
-                      price: '',
-                      image: '',
-                      description: '',
-                      category: 'dog-food',
-                      brand: 'Hound & Harbor',
-                      stock: '50',
-                      featured: true,
-                      breed: 'Golden Retriever',
-                      size: 'medium',
-                      ageYears: '1',
-                      gender: 'female',
-                      location: 'Austin, TX',
-                    });
+                    setFormData(DEFAULT_FORM_DATA);
                     setIsAddModalOpen(true);
                   }}
                   className="px-4 py-2.5 rounded-xl bg-[#0E5E58] hover:bg-[#0B4A45] text-white text-xs font-bold shadow-sm transition-all flex items-center gap-2 cursor-pointer active:scale-98"
@@ -1336,25 +1371,42 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             {/* Items Grid View */}
             {filteredItems.length === 0 ? (
               <div className="bg-white rounded-2xl border border-[#E8E6DF] p-16 text-center shadow-xs">
-                <div className="w-14 h-14 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mx-auto mb-3">
+                <div className="w-14 h-14 rounded-full bg-[#F4F8F7] text-[#0E5E58] flex items-center justify-center mx-auto mb-3">
                   <Package size={28} />
                 </div>
-                <h3 className="text-base font-bold text-gray-900">No items match your filters</h3>
+                <h3 className="text-base font-bold text-gray-900">
+                  {unifiedItems.length === 0 ? 'No Marketplace Items Yet' : 'No items match your filters'}
+                </h3>
                 <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
-                  Reset the search or category filters to view all 724+ marketplace items.
+                  {unifiedItems.length === 0
+                    ? 'The database is clean and ready! Click "+ Add New Item" to create your first supply product or dog profile with Cloudinary image upload.'
+                    : 'Reset the search or category filters to view items.'}
                 </p>
-                <button
-                  onClick={() => {
-                    setItemSearchQuery('');
-                    setItemTypeFilter('all');
-                    setItemSortFilter('homepage');
-                    setItemPriceBracket('all');
-                    setItemCategoryFilter('all');
-                  }}
-                  className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
-                >
-                  Reset All Filters
-                </button>
+                {unifiedItems.length === 0 ? (
+                  <button
+                    onClick={() => {
+                      setFormData(DEFAULT_FORM_DATA);
+                      setIsAddModalOpen(true);
+                    }}
+                    className="mt-4 px-5 py-2.5 bg-[#0E5E58] hover:bg-[#0B4A45] text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer inline-flex items-center gap-2"
+                  >
+                    <Plus size={16} />
+                    <span>+ Add Your First Item</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setItemSearchQuery('');
+                      setItemTypeFilter('all');
+                      setItemSortFilter('homepage');
+                      setItemPriceBracket('all');
+                      setItemCategoryFilter('all');
+                    }}
+                    className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                  >
+                    Reset All Filters
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-6">
@@ -1549,7 +1601,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
             </div>
 
             {/* Form */}
-            <form onSubmit={handleAddItemSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+            <form onSubmit={handleAddItemSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
               {/* Item Name */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
@@ -1561,15 +1613,15 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   placeholder={addKind === 'supply' ? 'e.g., Wild Pacific Salmon Kibble' : 'e.g., Buster'}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                  className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none font-semibold text-gray-900"
                 />
               </div>
 
-              {/* Price */}
+              {/* Pricing (Selling Price & Compare At Price) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    {addKind === 'supply' ? 'Price ($)' : 'Adoption Fee / Price ($)'} *
+                    {addKind === 'supply' ? 'Selling Price ($)' : 'Adoption Fee ($)'} *
                   </label>
                   <input
                     type="number"
@@ -1579,95 +1631,331 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     placeholder="e.g., 49.99"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                    className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none font-semibold text-gray-900"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Compare-at / Market Price ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g., 79.99"
+                    value={formData.compareAtPrice}
+                    onChange={(e) => setFormData({ ...formData, compareAtPrice: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none text-gray-700"
+                  />
+                </div>
+              </div>
 
-                {addKind === 'supply' ? (
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Category</label>
-                    <select
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
-                    >
-                      {MARKETPLACE_CATEGORIES.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                      <option value="dog-food">Dog Food &amp; Nutrition</option>
-                      <option value="beds-furniture">Orthopedic Beds &amp; Furniture</option>
-                      <option value="health-supplements">Mobility &amp; Wellness</option>
-                      <option value="collars-leashes">Artisan Walking Gear</option>
-                      <option value="crates-travel">Certified Resale Crates</option>
-                      <option value="dog-treats">Single-Ingredient Treats</option>
-                    </select>
+              {/* Supply Specific Meta: Category, Brand, Stock, SKU */}
+              {addKind === 'supply' ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Category</label>
+                      <select
+                        value={formData.category}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      >
+                        {MARKETPLACE_CATEGORIES.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Brand</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Hound & Harbor Marketplace"
+                        value={formData.brand}
+                        onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
                   </div>
-                ) : (
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Inventory Stock</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="50"
+                        value={formData.stock}
+                        onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">SKU Code</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., HH-FOOD-001"
+                        value={formData.sku}
+                        onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Dog Specific Identity Fields */
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Breed *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g., Golden Retriever"
+                        value={formData.breed}
+                        onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Gender</label>
+                      <select
+                        value={formData.gender}
+                        onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      >
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Size</label>
+                      <select
+                        value={formData.size}
+                        onChange={(e) => setFormData({ ...formData, size: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      >
+                        <option value="toy">Toy (Under 10 lbs)</option>
+                        <option value="small">Small (10 - 25 lbs)</option>
+                        <option value="medium">Medium (25 - 55 lbs)</option>
+                        <option value="large">Large (55 - 85 lbs)</option>
+                        <option value="giant">Giant (85+ lbs)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Weight (lbs)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g., 45"
+                        value={formData.weightLbs}
+                        onChange={(e) => setFormData({ ...formData, weightLbs: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Age (Years)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="1"
+                        value={formData.ageYears}
+                        onChange={(e) => setFormData({ ...formData, ageYears: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Age (Months)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="11"
+                        placeholder="4"
+                        value={formData.ageMonths}
+                        onChange={(e) => setFormData({ ...formData, ageMonths: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Location</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Austin, TX"
+                        value={formData.location}
+                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Partner Source / Shelter</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Chewy Partner Network"
+                        value={formData.partnerSource}
+                        onChange={(e) => setFormData({ ...formData, partnerSource: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Energy Level</label>
+                      <select
+                        value={formData.energyLevel}
+                        onChange={(e) => setFormData({ ...formData, energyLevel: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      >
+                        <option value="calm">Calm &amp; Gentle</option>
+                        <option value="moderate">Moderate Daily Energy</option>
+                        <option value="playful">Playful &amp; Friendly</option>
+                        <option value="athletic">Athletic &amp; High Energy</option>
+                        <option value="working">Working &amp; Focused</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Chewy / Petco Bundle</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Starter Kit Included"
+                        value={formData.chewyPetcoBundle}
+                        onChange={(e) => setFormData({ ...formData, chewyPetcoBundle: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Veterinary Status Checkboxes */}
+                  <div className="p-3 bg-[#FAF9F6] border border-gray-200 rounded-xl space-y-1.5">
+                    <span className="text-[11px] font-bold text-gray-700 block uppercase tracking-wide">
+                      Veterinary Certification
+                    </span>
+                    <div className="grid grid-cols-3 gap-2 text-xs text-gray-700">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.isNeuteredOrSpayed}
+                          onChange={(e) => setFormData({ ...formData, isNeuteredOrSpayed: e.target.checked })}
+                          className="rounded text-[#0E5E58]"
+                        />
+                        <span>Neutered/Spayed</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.isVaccinated}
+                          onChange={(e) => setFormData({ ...formData, isVaccinated: e.target.checked })}
+                          className="rounded text-[#0E5E58]"
+                        />
+                        <span>Vaccinated</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.isMicrochipped}
+                          onChange={(e) => setFormData({ ...formData, isMicrochipped: e.target.checked })}
+                          className="rounded text-[#0E5E58]"
+                        />
+                        <span>Microchipped</span>
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Image Uploader & Link (Cloudinary Hosted) */}
+              <AdminImageUploader
+                label={addKind === 'supply' ? 'Product Image' : 'Dog Photo'}
+                value={formData.image}
+                onChange={(url) => setFormData({ ...formData, image: url })}
+                folder={addKind === 'supply' ? 'hound_and_harbor/supplies' : 'hound_and_harbor/dogs'}
+                fallbackImage={
+                  addKind === 'dog'
+                    ? 'https://images.dog.ceo/breeds/retriever-golden/n02099601_100.jpg'
+                    : 'https://images.unsplash.com/photo-1589924691995-400dc9ecc119?auto=format&fit=crop&w=600&q=80'
+                }
+              />
+
+              {/* Physical Specifications (Shown on item preview popup) */}
+              {addKind === 'supply' ? (
+                <div className="p-3.5 bg-[#FAF9F6] border border-gray-200 rounded-xl space-y-3">
+                  <div className="text-[11px] font-bold text-gray-700 uppercase tracking-wide">
+                    Engineering Specs (Shown on Preview Popup)
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Shape Configuration</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Orthopedic Bolster, Step-In Wrap"
+                        value={formData.shape}
+                        onChange={(e) => setFormData({ ...formData, shape: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Design Type</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Waterproof Storm Raincoat"
+                        value={formData.itemType}
+                        onChange={(e) => setFormData({ ...formData, itemType: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none bg-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Dimensions / Sizing</label>
+                      <input
+                        type="text"
+                        placeholder={'e.g., 36" x 28" x 7" (Medium)'}
+                        value={formData.dimensions}
+                        onChange={(e) => setFormData({ ...formData, dimensions: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Primary Material</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., High-Density Orthopedic Memory Foam"
+                        value={formData.material}
+                        onChange={(e) => setFormData({ ...formData, material: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Dog Temperament and Health Guarantee */
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Breed</label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Temperament (comma-separated)</label>
                     <input
                       type="text"
-                      placeholder="e.g., Golden Retriever"
-                      value={formData.breed}
-                      onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
+                      placeholder="e.g., Gentle, Loving, House-Trained, Playful"
+                      value={formData.temperament}
+                      onChange={(e) => setFormData({ ...formData, temperament: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
                     />
                   </div>
-                )}
-              </div>
-
-              {/* Image URL with instant preview */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Image URL *
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://..."
-                  value={formData.image}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
-                />
-                {formData.image && (
-                  <div className="mt-2 flex items-center gap-3 p-2 bg-gray-50 rounded-xl border border-gray-100">
-                    <img
-                      src={formData.image}
-                      alt="Preview"
-                      className="w-12 h-12 object-cover rounded-lg border border-gray-200"
-                      onError={(e: any) => (e.target.style.display = 'none')}
-                    />
-                    <span className="text-[11px] text-gray-500">Image preview verified</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Specific fields for Adoption Dogs */}
-              {addKind === 'dog' && (
-                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Size</label>
-                    <select
-                      value={formData.size}
-                      onChange={(e) => setFormData({ ...formData, size: e.target.value })}
-                      className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
-                    >
-                      <option value="toy">Toy (Under 10 lbs)</option>
-                      <option value="small">Small (10 - 25 lbs)</option>
-                      <option value="medium">Medium (25 - 55 lbs)</option>
-                      <option value="large">Large (55 - 85 lbs)</option>
-                      <option value="giant">Giant (85+ lbs)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Location</label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Health Guarantee</label>
                     <input
                       type="text"
-                      placeholder="e.g., Austin, TX"
-                      value={formData.location}
-                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      placeholder="e.g., 1-Year Comprehensive Health Shield"
+                      value={formData.healthGuarantee}
+                      onChange={(e) => setFormData({ ...formData, healthGuarantee: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
                     />
                   </div>
@@ -1676,9 +1964,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
               {/* Description */}
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Description</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  {addKind === 'supply' ? 'Product Description *' : 'Canine Bio / Story *'}
+                </label>
                 <textarea
                   rows={3}
+                  required
                   placeholder={
                     addKind === 'supply'
                       ? 'Detailed product specifications and canine dietary notes...'
@@ -1689,6 +1980,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                   className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
                 />
               </div>
+
+              {addKind === 'supply' && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Search Tags (comma-separated)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., orthopedic, joint-support, washable, waterproof"
+                    value={formData.tags}
+                    onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                  />
+                </div>
+              )}
 
               <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
                 <button
@@ -1713,12 +2017,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
 
       {/* ========================================================= */}
       {/* EDIT ITEM MODAL                                           */}
-      {/* Specifically allows changing: image, name, price, and     */}
-      {/* description of items (specifically dogs for adoption)     */}
+      {/* Complete edit panel for all information shown on preview   */}
       {/* ========================================================= */}
       {editingItem && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-xl w-full border border-gray-200 shadow-2xl overflow-hidden my-8">
+          <div className="bg-white rounded-2xl max-w-2xl w-full border border-gray-200 shadow-2xl overflow-hidden my-8">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-[#FAF9F6]">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#0E5E58]">
@@ -1740,7 +2043,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
               {/* 1. EDIT NAME */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Item Name *
+                  Item Name (Title) *
                 </label>
                 <input
                   type="text"
@@ -1751,11 +2054,11 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 />
               </div>
 
-              {/* 2. EDIT PRICE */}
+              {/* 2. EDIT PRICING */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Price / Adoption Fee ($) *
+                    Selling Price / Adoption Fee ($) *
                   </label>
                   <input
                     type="number"
@@ -1767,78 +2070,328 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                     className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none font-semibold text-gray-900"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Compare-at / Market Price ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Regular price"
+                    value={formData.compareAtPrice}
+                    onChange={(e) => setFormData({ ...formData, compareAtPrice: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none text-gray-700"
+                  />
+                </div>
+              </div>
 
-                {editingItem.itemKind === 'supply' ? (
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Category</label>
-                    <select
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
-                    >
-                      {MARKETPLACE_CATEGORIES.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                      <option value="dog-food">Dog Food &amp; Nutrition</option>
-                      <option value="beds-furniture">Orthopedic Beds &amp; Furniture</option>
-                      <option value="health-supplements">Mobility &amp; Wellness</option>
-                      <option value="collars-leashes">Artisan Walking Gear</option>
-                      <option value="crates-travel">Certified Resale Crates</option>
-                      <option value="dog-treats">Single-Ingredient Treats</option>
-                    </select>
+              {/* Supply Specific Meta: Category, Brand, Stock, SKU */}
+              {editingItem.itemKind === 'supply' ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Category</label>
+                      <select
+                        value={formData.category}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      >
+                        {MARKETPLACE_CATEGORIES.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Brand</label>
+                      <input
+                        type="text"
+                        value={formData.brand}
+                        onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
                   </div>
-                ) : (
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Inventory Stock</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.stock}
+                        onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">SKU Code</label>
+                      <input
+                        type="text"
+                        value={formData.sku}
+                        onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Dog Specific Identity Fields */
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Breed *</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.breed}
+                        onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Gender</label>
+                      <select
+                        value={formData.gender}
+                        onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      >
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Size</label>
+                      <select
+                        value={formData.size}
+                        onChange={(e) => setFormData({ ...formData, size: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      >
+                        <option value="toy">Toy (Under 10 lbs)</option>
+                        <option value="small">Small (10 - 25 lbs)</option>
+                        <option value="medium">Medium (25 - 55 lbs)</option>
+                        <option value="large">Large (55 - 85 lbs)</option>
+                        <option value="giant">Giant (85+ lbs)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Weight (lbs)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.weightLbs}
+                        onChange={(e) => setFormData({ ...formData, weightLbs: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Age (Years)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.ageYears}
+                        onChange={(e) => setFormData({ ...formData, ageYears: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Age (Months)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="11"
+                        value={formData.ageMonths}
+                        onChange={(e) => setFormData({ ...formData, ageMonths: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Location</label>
+                      <input
+                        type="text"
+                        value={formData.location}
+                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Partner Source / Shelter</label>
+                      <input
+                        type="text"
+                        value={formData.partnerSource}
+                        onChange={(e) => setFormData({ ...formData, partnerSource: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Energy Level</label>
+                      <select
+                        value={formData.energyLevel}
+                        onChange={(e) => setFormData({ ...formData, energyLevel: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      >
+                        <option value="calm">Calm &amp; Gentle</option>
+                        <option value="moderate">Moderate Daily Energy</option>
+                        <option value="playful">Playful &amp; Friendly</option>
+                        <option value="athletic">Athletic &amp; High Energy</option>
+                        <option value="working">Working &amp; Focused</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Chewy / Petco Bundle</label>
+                      <input
+                        type="text"
+                        value={formData.chewyPetcoBundle}
+                        onChange={(e) => setFormData({ ...formData, chewyPetcoBundle: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Veterinary Status Checkboxes */}
+                  <div className="p-3 bg-[#FAF9F6] border border-gray-200 rounded-xl space-y-1.5">
+                    <span className="text-[11px] font-bold text-gray-700 block uppercase tracking-wide">
+                      Veterinary Certification
+                    </span>
+                    <div className="grid grid-cols-3 gap-2 text-xs text-gray-700">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.isNeuteredOrSpayed}
+                          onChange={(e) => setFormData({ ...formData, isNeuteredOrSpayed: e.target.checked })}
+                          className="rounded text-[#0E5E58]"
+                        />
+                        <span>Neutered/Spayed</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.isVaccinated}
+                          onChange={(e) => setFormData({ ...formData, isVaccinated: e.target.checked })}
+                          className="rounded text-[#0E5E58]"
+                        />
+                        <span>Vaccinated</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.isMicrochipped}
+                          onChange={(e) => setFormData({ ...formData, isMicrochipped: e.target.checked })}
+                          className="rounded text-[#0E5E58]"
+                        />
+                        <span>Microchipped</span>
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* 3. EDIT IMAGE (Cloudinary Hosted Direct Upload or Link) */}
+              <AdminImageUploader
+                label={editingItem.itemKind === 'supply' ? 'Product Image' : 'Dog Photo'}
+                value={formData.image}
+                onChange={(url) => setFormData({ ...formData, image: url })}
+                folder={editingItem.itemKind === 'supply' ? 'hound_and_harbor/supplies' : 'hound_and_harbor/dogs'}
+                fallbackImage={
+                  editingItem.itemKind === 'dog'
+                    ? 'https://images.dog.ceo/breeds/retriever-golden/n02099601_100.jpg'
+                    : 'https://images.unsplash.com/photo-1589924691995-400dc9ecc119?auto=format&fit=crop&w=600&q=80'
+                }
+              />
+
+              {/* Physical Specifications (Shown on item preview popup) */}
+              {editingItem.itemKind === 'supply' ? (
+                <div className="p-3.5 bg-[#FAF9F6] border border-gray-200 rounded-xl space-y-3">
+                  <div className="text-[11px] font-bold text-gray-700 uppercase tracking-wide">
+                    Engineering Specs (Shown on Preview Popup)
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Shape Configuration</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Orthopedic Bolster"
+                        value={formData.shape}
+                        onChange={(e) => setFormData({ ...formData, shape: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Design Type</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Memory Foam Bed"
+                        value={formData.itemType}
+                        onChange={(e) => setFormData({ ...formData, itemType: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none bg-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Dimensions / Sizing</label>
+                      <input
+                        type="text"
+                        placeholder={'e.g., 36" x 28" x 7" (Medium)'}
+                        value={formData.dimensions}
+                        onChange={(e) => setFormData({ ...formData, dimensions: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Primary Material</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., High-Density Orthopedic Foam"
+                        value={formData.material}
+                        onChange={(e) => setFormData({ ...formData, material: e.target.value })}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Dog Temperament & Guarantee */
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Breed</label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Temperament (comma-separated)</label>
                     <input
                       type="text"
-                      value={formData.breed}
-                      onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
+                      placeholder="e.g., Gentle, Loving, House-Trained, Playful"
+                      value={formData.temperament}
+                      onChange={(e) => setFormData({ ...formData, temperament: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
                     />
                   </div>
-                )}
-              </div>
-
-              {/* 3. EDIT IMAGE */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Change Image URL *
-                </label>
-                <input
-                  type="url"
-                  required
-                  value={formData.image}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none font-mono"
-                />
-
-                {/* Instant image preview */}
-                <div className="mt-2.5 p-2 bg-gray-50 border border-gray-100 rounded-xl flex items-center gap-3">
-                  <img
-                    src={formData.image}
-                    alt="Current preview"
-                    className="w-16 h-14 object-cover rounded-lg border border-gray-200 shrink-0 bg-white"
-                    onError={(e: any) => {
-                      e.target.src =
-                        editingItem.itemKind === 'dog'
-                          ? 'https://images.dog.ceo/breeds/retriever-golden/n02099601_100.jpg'
-                          : 'https://images.unsplash.com/photo-1589924691995-400dc9ecc119?auto=format&fit=crop&w=600&q=80';
-                    }}
-                  />
-                  <div className="text-[11px] text-gray-500 leading-tight">
-                    <span className="font-semibold text-gray-700 block">Visual Image Preview</span>
-                    Changes will appear on the storefront and admin catalog immediately.
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Health Guarantee</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., 1-Year Comprehensive Health Shield"
+                      value={formData.healthGuarantee}
+                      onChange={(e) => setFormData({ ...formData, healthGuarantee: e.target.value })}
+                      className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                    />
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* 4. EDIT DESCRIPTION */}
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Change Description *
+                  {editingItem.itemKind === 'supply' ? 'Product Description *' : 'Canine Bio / Story *'}
                 </label>
                 <textarea
                   rows={4}
@@ -1849,33 +2402,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ onNaviga
                 />
               </div>
 
-              {/* Additional Dog fields if dog for adoption */}
-              {editingItem.itemKind === 'dog' && (
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Size</label>
-                    <select
-                      value={formData.size}
-                      onChange={(e) => setFormData({ ...formData, size: e.target.value })}
-                      className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
-                    >
-                      <option value="toy">Toy (Under 10 lbs)</option>
-                      <option value="small">Small (10 - 25 lbs)</option>
-                      <option value="medium">Medium (25 - 55 lbs)</option>
-                      <option value="large">Large (55 - 85 lbs)</option>
-                      <option value="giant">Giant (85+ lbs)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Location</label>
-                    <input
-                      type="text"
-                      value={formData.location}
-                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                      className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
-                    />
-                  </div>
+              {editingItem.itemKind === 'supply' && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Search Tags (comma-separated)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., orthopedic, joint-support, washable, waterproof"
+                    value={formData.tags}
+                    onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-gray-200 focus:border-[#0E5E58] rounded-xl outline-none"
+                  />
                 </div>
               )}
 

@@ -9,8 +9,6 @@ import {
   NotificationModel,
   MarketplaceDogModel,
 } from '../models';
-import { defaultMarketplaceDogs } from '../data/marketplaceDogs';
-import { backendMarketplaceCatalog } from '../data/marketplaceCatalog';
 import { SellerStatus, ProductCondition, BuybackStatus, ProductOwnerType, PLATFORM_CONFIG } from '../config/constants';
 import { BuybackService } from '../services/buybackService';
 
@@ -262,10 +260,7 @@ export const respondToBuybackOffer = async (req: AuthenticatedRequest, res: Resp
 
 export const getMarketplaceDogs = async (req: Request, res: Response) => {
   try {
-    let dogs = await MarketplaceDogModel.find();
-    if (!dogs || dogs.length === 0) {
-      dogs = defaultMarketplaceDogs;
-    }
+    const dogs = await MarketplaceDogModel.find();
 
     const { size, search, partner, minPrice, maxPrice, sortBy, limit, offset } = req.query;
 
@@ -345,10 +340,7 @@ export const getMarketplaceDogs = async (req: Request, res: Response) => {
 export const getMarketplaceDogById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    let dog = await MarketplaceDogModel.findById(id);
-    if (!dog) {
-      dog = defaultMarketplaceDogs.find((d) => d.id === id) || null;
-    }
+    const dog = await MarketplaceDogModel.findById(id);
 
     if (!dog) {
       return res.status(404).json({ success: false, error: 'Marketplace dog profile not found.' });
@@ -363,23 +355,24 @@ export const getMarketplaceDogById = async (req: Request, res: Response) => {
 export const getMarketplaceItems = async (req: Request, res: Response) => {
   try {
     const { category, search, limit = 52, page = 1, shape, itemType, sort } = req.query;
-    let items = [...backendMarketplaceCatalog];
-    if (category) {
+    let items = (await ProductModel.find()) as any[];
+    if (category && category !== 'all') {
       items = items.filter((it) => it.category === category);
     }
-    if (shape) {
+    if (shape && shape !== 'all') {
       items = items.filter((it) => it.shape?.toLowerCase() === String(shape).toLowerCase());
     }
-    if (itemType) {
+    if (itemType && itemType !== 'all') {
       items = items.filter((it) => it.itemType?.toLowerCase() === String(itemType).toLowerCase());
     }
     if (search) {
       const q = String(search).toLowerCase();
       items = items.filter(
         (it) =>
-          it.title.toLowerCase().includes(q) ||
-          it.description.toLowerCase().includes(q) ||
-          it.tags.some((t) => t.toLowerCase().includes(q))
+          it.title?.toLowerCase().includes(q) ||
+          it.name?.toLowerCase().includes(q) ||
+          it.description?.toLowerCase().includes(q) ||
+          (it.tags && it.tags.some((t: string) => t.toLowerCase().includes(q)))
       );
     }
     if (sort === 'price-low') {
@@ -387,11 +380,11 @@ export const getMarketplaceItems = async (req: Request, res: Response) => {
     } else if (sort === 'price-high') {
       items.sort((a, b) => b.price - a.price);
     } else if (sort === 'rating') {
-      items.sort((a, b) => b.rating - a.rating);
+      items.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     } else {
       // Default: place newly added or edited items at the top of the marketplace
       items.sort((a: any, b: any) => {
-        const aTime = a.recentlyAdminEditedAt || (a.isRecentlyUpdated ? 1 : 0) || 0;
+        const aTime = a.recentlyAdminEditedAt || (a.isNewlyAdded ? 1 : 0) || 0;
         const bTime = b.recentlyAdminEditedAt || (b.isRecentlyUpdated ? 1 : 0) || 0;
         if (aTime !== bTime) {
           return bTime - aTime;
@@ -420,7 +413,10 @@ export const getMarketplaceItems = async (req: Request, res: Response) => {
 export const getMarketplaceItemById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const item = backendMarketplaceCatalog.find((it) => it.id === id || it.slug === id);
+    let item = await ProductModel.findById(id);
+    if (!item) {
+      item = await ProductModel.findOne({ slug: id });
+    }
     if (!item) {
       return res.status(404).json({ success: false, error: 'Marketplace item not found.' });
     }

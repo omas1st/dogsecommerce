@@ -1,16 +1,23 @@
 const API_BASE = '/api';
 
+// In-memory session and authentication state (no browser/phone storage used)
+let inMemoryGuestId: string = `gst_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+let inMemoryAuthToken: string | null = null;
+
 export function getGuestSessionId(): string {
-  let guestId = localStorage.getItem('hound_guest_session_id');
-  if (!guestId) {
-    guestId = `gst_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    localStorage.setItem('hound_guest_session_id', guestId);
-  }
-  return guestId;
+  return inMemoryGuestId;
+}
+
+export function setInMemoryAuthToken(token: string | null): void {
+  inMemoryAuthToken = token;
+}
+
+export function getInMemoryAuthToken(): string | null {
+  return inMemoryAuthToken;
 }
 
 export async function apiRequest<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem('hound_auth_token');
+  const token = inMemoryAuthToken;
   const guestId = getGuestSessionId();
 
   const headers: Record<string, string> = {

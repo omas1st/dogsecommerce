@@ -137,22 +137,14 @@ export const getAdminPets = async (req: AuthenticatedRequest, res: Response) => 
 export const getAdminProducts = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const dbProducts = await ProductModel.find();
-    const productMap = new Map<string, any>();
-
-    // Add all DB products
-    for (const p of dbProducts) {
-      productMap.set(p.id, p);
-      if (p.slug) productMap.set(p.slug, p);
-    }
-
-    // Merge in all 624 items from backendMarketplaceCatalog so EVERYTHING in the marketplace is in admin panel
-    for (const item of backendMarketplaceCatalog) {
-      if (!productMap.has(item.id) && !productMap.has(item.slug)) {
-        productMap.set(item.id, item);
-      }
-    }
-
-    const allProducts = Array.from(new Set(productMap.values()));
+    const allProducts = [...dbProducts];
+    // Always list newly added or edited items FIRST on the Admin Panel
+    allProducts.sort((a: any, b: any) => {
+      const timeA = a.recentlyAdminEditedAt || (a.isNewlyAdded ? 1 : 0) || 0;
+      const timeB = b.recentlyAdminEditedAt || (b.isRecentlyUpdated ? 1 : 0) || 0;
+      if (timeA !== timeB) return timeB - timeA;
+      return 0;
+    });
     return res.json({ success: true, count: allProducts.length, products: allProducts });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
@@ -227,7 +219,7 @@ export const updateAdminProduct = async (req: AuthenticatedRequest, res: Respons
     updates.isRecentlyUpdated = true;
     updates.updatedAt = new Date().toISOString();
 
-    const updated = await ProductModel.findByIdAndUpdate(existing.id, updates);
+    const updated = (await ProductModel.findByIdAndUpdate(existing.id, updates, { new: true })) || { ...existing, ...updates };
 
     // Also update in-memory backendMarketplaceCatalog and place at top of list
     const mktIdx = backendMarketplaceCatalog.findIndex((it) => it.id === id || it.slug === id);
@@ -277,16 +269,13 @@ export const deleteAdminProduct = async (req: AuthenticatedRequest, res: Respons
 export const getAdminMarketplaceDogs = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const dbDogs = await MarketplaceDogModel.find();
-    const dogMap = new Map<string, any>();
-    for (const d of dbDogs) {
-      dogMap.set(d.id, d);
-    }
-    for (const d of defaultMarketplaceDogs) {
-      if (!dogMap.has(d.id)) {
-        dogMap.set(d.id, d);
-      }
-    }
-    const allDogs = Array.from(dogMap.values());
+    const allDogs = [...dbDogs];
+    allDogs.sort((a: any, b: any) => {
+      const timeA = a.recentlyAdminEditedAt || (a.isNewlyAdded ? 1 : 0) || 0;
+      const timeB = b.recentlyAdminEditedAt || (b.isRecentlyUpdated ? 1 : 0) || 0;
+      if (timeA !== timeB) return timeB - timeA;
+      return 0;
+    });
     return res.json({ success: true, count: allDogs.length, dogs: allDogs });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
@@ -361,7 +350,7 @@ export const updateAdminMarketplaceDog = async (req: AuthenticatedRequest, res: 
     updates.isRecentlyUpdated = true;
     updates.updatedAt = new Date().toISOString();
 
-    const updated = await MarketplaceDogModel.findByIdAndUpdate(existing.id, updates);
+    const updated = (await MarketplaceDogModel.findByIdAndUpdate(existing.id, updates, { new: true })) || { ...existing, ...updates };
     const dIdx = defaultMarketplaceDogs.findIndex((d) => d.id === id);
     if (dIdx !== -1) {
       const updatedDog = { ...defaultMarketplaceDogs[dIdx], ...updates };

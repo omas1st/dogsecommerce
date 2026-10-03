@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
-import { apiRequest } from '../services/api';
+import { apiRequest, setInMemoryAuthToken, getInMemoryAuthToken } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -17,13 +17,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('hound_auth_token'));
+  const [token, setToken] = useState<string | null>(() => getInMemoryAuthToken());
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const refreshUser = async () => {
     try {
-      const storedToken = localStorage.getItem('hound_auth_token');
-      if (!storedToken) {
+      const currentToken = getInMemoryAuthToken();
+      if (!currentToken) {
         setUser(null);
         setIsLoading(false);
         return;
@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await apiRequest<{ success: boolean; user: User }>('/auth/me');
       setUser(data.user);
     } catch (err) {
-      localStorage.removeItem('hound_auth_token');
+      setInMemoryAuthToken(null);
       setUser(null);
       setToken(null);
     } finally {
@@ -48,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       method: 'POST',
       body: JSON.stringify({ email, password: pass }),
     });
-    localStorage.setItem('hound_auth_token', data.token);
+    setInMemoryAuthToken(data.token);
     setToken(data.token);
     setUser(data.user);
   };
@@ -58,13 +58,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       method: 'POST',
       body: JSON.stringify(data),
     });
-    localStorage.setItem('hound_auth_token', res.token);
+    setInMemoryAuthToken(res.token);
     setToken(res.token);
     setUser(res.user);
   };
 
   const logout = () => {
-    localStorage.removeItem('hound_auth_token');
+    setInMemoryAuthToken(null);
     setToken(null);
     setUser(null);
   };

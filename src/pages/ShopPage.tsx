@@ -330,17 +330,21 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                   <Search size={28} />
                 </div>
                 <h3 className="font-serif-brand text-xl font-bold text-[#1E232A]">
-                  No matching products found
+                  {products.length === 0 ? 'No Products Currently Listed' : 'No matching products found'}
                 </h3>
                 <p className="mt-1 text-xs text-gray-500 max-w-sm mx-auto">
-                  Try clearing some of your filters or searching for broader terms like "kibble", "bed", or "chew".
+                  {products.length === 0
+                    ? 'We are currently preparing fresh gear and nutrition for your dogs. Please check back shortly!'
+                    : 'Try clearing some of your filters or searching for broader terms.'}
                 </p>
-                <button
-                  onClick={clearAllFilters}
-                  className="mt-5 rounded-lg bg-[#0E5E58] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#0B4A45]"
-                >
-                  Clear All Filters
-                </button>
+                {products.length > 0 && (
+                  <button
+                    onClick={clearAllFilters}
+                    className="mt-5 rounded-lg bg-[#0E5E58] px-5 py-2.5 text-xs font-semibold text-white hover:bg-[#0B4A45] cursor-pointer"
+                  >
+                    Clear All Filters
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

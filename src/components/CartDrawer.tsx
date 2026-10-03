@@ -60,10 +60,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const giftCardDeduction = summary?.giftCardDeduction ?? 0;
   const estimatedTotal = Math.max(0, currentSubtotal - discount - giftCardDeduction);
 
-  const freeShippingThreshold = 49.0;
-  const remainingForFreeShipping = Math.max(0, freeShippingThreshold - currentSubtotal);
-  const freeShippingPercent = Math.min(100, Math.round((currentSubtotal / freeShippingThreshold) * 100));
-
   return (
     <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
       {/* Backdrop */}
@@ -90,28 +86,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           >
             <X size={20} />
           </button>
-        </div>
-
-        {/* Free Shipping Progress */}
-        <div className="shrink-0 bg-[#F4F8F7] px-4 sm:px-5 py-2.5 sm:py-3 border-b border-[#E2EFEB]">
-          <div className="flex items-center justify-between text-xs font-medium text-[#1E232A]">
-            {remainingForFreeShipping > 0 ? (
-              <span>
-                Add <strong className="text-[#0E5E58]">${remainingForFreeShipping.toFixed(2)}</strong> more for <strong>FREE US Delivery</strong>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-[#0E5E58] font-bold">
-                <ShieldCheck size={14} /> You unlocked Free US Ground Shipping!
-              </span>
-            )}
-            <span className="text-gray-500 font-semibold">{freeShippingPercent}%</span>
-          </div>
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#D4E8E4]">
-            <div
-              className="h-full bg-[#0E5E58] transition-all duration-300 rounded-full"
-              style={{ width: `${freeShippingPercent}%` }}
-            />
-          </div>
         </div>
 
         {/* Cart Items Scrollable List */}

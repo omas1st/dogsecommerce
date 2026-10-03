@@ -13,9 +13,9 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Request parsers & middlewares
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  // Request parsers & middlewares (50mb to allow high-res direct image uploads to Cloudinary)
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // Mount API router FIRST
   app.use('/api', apiRouter);

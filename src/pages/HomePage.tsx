@@ -30,8 +30,18 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onSelectProduct 
   useEffect(() => {
     async function loadHomeData() {
       try {
-        const prodData = await apiRequest<{ success: boolean; products: Product[] }>('/products?limit=8');
-        setFeaturedProducts(prodData.products || []);
+        const prodData = await apiRequest<{ success: boolean; products: Product[] }>('/products?limit=16');
+        const prods = prodData.products || [];
+        // Ensure items with recentlyAdminEditedAt or isRecentlyUpdated are placed first on the homepage
+        prods.sort((a: any, b: any) => {
+          const aTime = a.recentlyAdminEditedAt || (a.isNewlyAdded ? 1 : 0) || 0;
+          const bTime = b.recentlyAdminEditedAt || (b.isRecentlyUpdated ? 1 : 0) || 0;
+          if (aTime !== bTime) {
+            return bTime - aTime;
+          }
+          return 0;
+        });
+        setFeaturedProducts(prods.slice(0, 8));
 
         if (activePet && activePet.id) {
           const recData = await apiRequest<{
@@ -349,15 +359,24 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onSelectProduct 
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredProducts.slice(0, 8).map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onSelect={onSelectProduct}
-              />
-            ))}
-          </div>
+          {featuredProducts.length === 0 ? (
+            <div className="bg-[#FAF9F6] rounded-2xl p-10 text-center border border-[#E8E6DF]">
+              <p className="text-sm font-bold text-gray-800">Curating New Arrivals</p>
+              <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                Our canine nutrition and gear collection is being updated. Please check back soon for fresh arrivals!
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredProducts.slice(0, 8).map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onSelect={onSelectProduct}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

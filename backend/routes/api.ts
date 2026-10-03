@@ -41,7 +41,8 @@ apiRouter.put('/auth/profile', requireAuth, authCtrl.updateProfile);
 apiRouter.get('/products', productCtrl.getProducts);
 apiRouter.get('/products/:slug', productCtrl.getProductBySlug);
 apiRouter.get('/categories', productCtrl.getCategories);
-apiRouter.post('/reviews', requireAuth, productCtrl.addProductReview);
+apiRouter.get('/reviews/:productId', authOptional, productCtrl.getProductReviews);
+apiRouter.post('/reviews', authOptional, productCtrl.addProductReview);
 
 // ---------------- PET PROFILES & DASHBOARD ----------------
 apiRouter.get('/pets', authOptional, petCtrl.getPets);
@@ -138,5 +139,5 @@ apiRouter.put('/admin/settings', requireAuth, requireAdmin, adminCtrl.updateSett
 apiRouter.get('/admin/export', requireAuth, requireAdmin, adminCtrl.exportReportCsv);
 
 // ---------------- MEDIA & STORAGE (CLOUDINARY) ----------------
-apiRouter.post('/upload', requireAuth, uploadCtrl.uploadMedia);
+apiRouter.post('/upload', authOptional, uploadCtrl.uploadMedia);
 
