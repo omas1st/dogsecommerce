@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { extractErrorMessage } from '../services/api';
 import { Lock, Mail, User, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
 
 interface AuthPageProps {
@@ -54,7 +55,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         }
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Authentication failed. Please check credentials.');
+      const msg = extractErrorMessage(err, 'Authentication failed. Please check your credentials.');
+      setErrorMessage(msg);
     }
   };
 

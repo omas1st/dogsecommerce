@@ -362,8 +362,8 @@ function AppContent() {
         onProceedToCheckout={() => handleNavigate('checkout')}
       />
 
-      {/* Footer: ONLY shown on Homepage */}
-      {currentRoute === 'home' && <Footer onNavigate={handleNavigate} />}
+      {/* Footer: shown on Homepage and Marketplace */}
+      {(currentRoute === 'home' || currentRoute === 'marketplace') && <Footer onNavigate={handleNavigate} />}
     </div>
   );
 }
