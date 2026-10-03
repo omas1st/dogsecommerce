@@ -23,10 +23,11 @@ export function createExpressApp(): Express {
     next();
   });
 
-  // Mount API router
+  // Mount API router on both /api and root / to support direct and rewritten Vercel serverless paths
   app.use('/api', apiRouter);
+  app.use('/', apiRouter);
 
-  // Catch-all for undefined /api routes so they return JSON 404, never Vite HTML
+  // Catch-all for undefined /api routes so they return JSON 404, never HTML
   app.all('/api/*', (req, res) => {
     res.status(404).json({
       success: false,

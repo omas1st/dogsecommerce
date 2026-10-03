@@ -17,14 +17,11 @@ let mongoClient: MongoClient | null = null;
 let mongoDb: Db | null = null;
 let isMongoConnecting = false;
 let isMongoConnected = false;
+let mongoConnectionPromise: Promise<Db | null> | null = null;
 
 export async function connectMongo(): Promise<Db | null> {
   if (mongoDb && isMongoConnected) return mongoDb;
-  if (isMongoConnecting) {
-    // Wait briefly if connection is in progress
-    await new Promise((res) => setTimeout(res, 500));
-    if (mongoDb) return mongoDb;
-  }
+  if (mongoConnectionPromise) return mongoConnectionPromise;
 
   const uri =
     process.env.MONGO_URI ||
@@ -35,26 +32,32 @@ export async function connectMongo(): Promise<Db | null> {
     return null;
   }
 
-  try {
-    isMongoConnecting = true;
-    console.log('[MongoDB] Connecting to MongoDB Atlas cluster...');
-    mongoClient = new MongoClient(uri, {
-      serverSelectionTimeoutMS: 10000,
-      connectTimeoutMS: 10000,
-    });
-    await mongoClient.connect();
-    // Default to 'ecommerce' database or extract from URI
-    mongoDb = mongoClient.db('ecommerce');
-    isMongoConnected = true;
-    isMongoConnecting = false;
-    console.log('[MongoDB] Successfully connected to MongoDB Atlas (Database: ecommerce)');
-    return mongoDb;
-  } catch (error: any) {
-    isMongoConnecting = false;
-    isMongoConnected = false;
-    console.error('[MongoDB] Connection failed:', error.message);
-    return null;
-  }
+  mongoConnectionPromise = (async () => {
+    try {
+      isMongoConnecting = true;
+      if (!mongoClient) {
+        mongoClient = new MongoClient(uri, {
+          serverSelectionTimeoutMS: 8000,
+          connectTimeoutMS: 8000,
+          maxPoolSize: 10,
+        });
+      }
+      await mongoClient.connect();
+      mongoDb = mongoClient.db('ecommerce');
+      isMongoConnected = true;
+      isMongoConnecting = false;
+      console.log('[MongoDB] Successfully connected to MongoDB Atlas (Database: ecommerce)');
+      return mongoDb;
+    } catch (error: any) {
+      isMongoConnecting = false;
+      isMongoConnected = false;
+      mongoConnectionPromise = null;
+      console.error('[MongoDB] Connection failed:', error?.message || error);
+      return null;
+    }
+  })();
+
+  return mongoConnectionPromise;
 }
 
 class Collection<T extends { id?: string; _id?: string; createdAt?: string; updatedAt?: string }> {
@@ -450,19 +453,20 @@ class DatabaseManager {
   }
 
   private init() {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
 
-    if (fs.existsSync(STORE_FILE)) {
-      try {
+      if (fs.existsSync(STORE_FILE)) {
         const content = fs.readFileSync(STORE_FILE, 'utf-8');
         this.data = JSON.parse(content || '{}');
-      } catch (err) {
-        console.error('Error reading store.json, resetting to empty data', err);
+      } else {
         this.data = {};
       }
-    } else {
+    } catch (err: any) {
+      // In serverless environments (like Vercel), local filesystem is read-only.
+      // DatabaseManager gracefully operates completely in-memory and delegates to MongoDB.
       this.data = {};
     }
   }
@@ -477,7 +481,7 @@ class DatabaseManager {
       }
       fs.writeFileSync(STORE_FILE, JSON.stringify(this.data, null, 2), 'utf-8');
     } catch (e) {
-      console.error('Failed to write store.json', e);
+      // In serverless environments, ignore read-only fs error
     }
   }
 
